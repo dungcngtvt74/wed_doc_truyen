@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tìm Kiếm Truyện</title>
+    <!-- ĐÃ SỬA: Đường dẫn CSS tương đối để lên màu chuẩn xác -->
+    <link rel="stylesheet" href="../../public/css/home.css">
+    <link rel="stylesheet" href="../../public/css/theloai_user.css">
+    <link rel="stylesheet" href="../../public/fonts/fontawesome-free-7.2.0-web/css/all.min.css">
+</head>
+<body>
+    <div id="header-container"></div>
+
+   <section class="stories">
+        <div class="container">
+            <h2 id="search-title">Đang tìm kiếm...</h2>
+            <div class="story-grid" id="story-grid">
+                <div class="story-status">Đang tải...</div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+    async function loadHeader() {
+        try {
+            const res = await fetch('../layouts/user/header.html', {
+                credentials: 'same-origin'
+            });
+            const html = await res.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const header = doc.querySelector('header');
+            const scripts = doc.querySelectorAll('script');
+            if (header) {
+                document.getElementById('header-container').innerHTML = header.outerHTML;
+                scripts.forEach(script => {
+                    const s = document.createElement('script');
+                    if (script.src) s.src = script.src;
+                    else s.textContent = script.textContent;
+                    document.body.appendChild(s);
+                });
+            }
+        } catch (err) {
+            console.error('Lỗi load header:', err);
+        }
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function resolveCoverUrl(anhBia) {
+        if (!anhBia) return 'https://via.placeholder.com/180x240/2c3e50/ffffff?text=No+Image';
+        if (anhBia.startsWith('http://') || anhBia.startsWith('https://')) return anhBia;
+        return 'http://localhost:8080/uploads/anhbia/' + anhBia.split('/').pop();
+    }
+
+    function renderStories(stories, keyword) {
+        const storyGrid = document.getElementById('story-grid');
+        const searchTitle = document.getElementById('search-title');
+
+        if (!Array.isArray(stories) || stories.length === 0) {
+            searchTitle.textContent = `Không tìm thấy kết quả cho "${keyword}"`;
+            storyGrid.innerHTML = '<div class="story-status"><h3>Không có kết quả</h3><p>Thử tìm với từ khóa khác nhé!</p></div>';
+            return;
+        }
+
+        searchTitle.textContent = `Kết quả tìm kiếm "${keyword}" (${stories.length} truyện)`;
+
+        storyGrid.innerHTML = stories.map(story => {
+            const title = escapeHtml(story.ten_truyen || 'Không có tiêu đề');
+            const author = escapeHtml(story.tac_gia || story.ten_tacgia || 'Chưa rõ');
+            const cover = resolveCoverUrl(story.anh_bia);
+
+            return `
+                <article class="story-card">
+                    <a href="chitiet.html?id=${story.id}">
+                        <img src="${cover}" alt="${title}"
+                             onerror="this.src='https://via.placeholder.com/180x240/2c3e50/ffffff?text=No+Image'">
+                        <h3>${title}</h3>
+                        <p>Tác giả: ${author}</p>
+                        <div class="story-meta">
+                            <span><i class="fa-solid fa-eye"></i> ${Number(story.luot_xem || 0).toLocaleString('vi-VN')}</span>
+                        </div>
+                    </a>
+                </article>
+            `;
+        }).join('');
+    }
+
+    async function search(keyword) {
+        const storyGrid = document.getElementById('story-grid');
+        const searchTitle = document.getElementById('search-title');
+
+        searchTitle.textContent = `Đang tìm "${keyword}"...`;
+        storyGrid.innerHTML = '<div class="story-status">Đang tải...</div>';
+
+        try {
+            // ĐÃ SỬA: Gọi API Spring Boot tìm kiếm
+            const res = await fetch(`http://localhost:8080/api/truyen/search?keyword=${encodeURIComponent(keyword)}`);
+            const data = await res.json();
+
+            if (!data.success) {
+                searchTitle.textContent = 'Tìm kiếm thất bại';
+                storyGrid.innerHTML = '<div class="story-status"><h3>⚠ Lỗi</h3><p>' + (data.message || 'Không thể tìm kiếm') + '</p></div>';
+                return;
+            }
+
+            renderStories(data.stories, keyword);
+
+        } catch (err) {
+            console.error('Lỗi tìm kiếm:', err);
+            storyGrid.innerHTML = '<div class="story-status"><h3>⚠ Lỗi kết nối</h3><p>Vui lòng thử lại sau</p></div>';
+        }
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const keyword = urlParams.get('keyword') || '';
+
+    if (!keyword) {
+        document.getElementById('search-title').textContent = 'Vui lòng nhập từ khóa tìm kiếm';
+        document.getElementById('story-grid').innerHTML = '';
+    } else {
+        document.title = `Tìm kiếm "${keyword}" - DocTruyen`;
+        loadHeader();
+        search(keyword);
+    }
+    </script>
+</body>
+</html>

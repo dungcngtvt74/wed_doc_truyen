@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thêm Tác Giả</title>
+    <link rel="stylesheet" href="../../public/css/log.css">
+    <link rel="stylesheet" href="../../public/css/tacgia.css">
+    <link rel="stylesheet" href="../../public/fonts/fontawesome-free-7.2.0-web/css/all.min.css">
+</head>
+<body class="tacgia-form">
+    <script src="../../public/js/admin-guard.js"></script>
+
+    <div class="login-container">
+        <div class="login-wrapper">
+            <h1 class="form-title">Thêm Tác Giả</h1>
+            <p id="form-message"></p>
+            <table>
+                <tr>
+                    <td><label for="ten_tacgia">Tác giả <span class="required-mark">*</span></label></td>
+                </tr>
+                <tr>
+                    <td>
+                        <input type="text" id="ten_tacgia" name="ten_tacgia" required placeholder="Nhập tên tác giả">
+                    </td>
+                </tr>
+                <tr>
+                    <td><label for="but_danh">Bút danh</label></td>
+                </tr>
+                <tr>
+                    <td>
+                        <input type="text" id="but_danh" name="but_danh" placeholder="Nhập bút danh (nếu có)">
+                    </td>
+                </tr>
+                <tr>
+                    <td><label for="gioi_thieu">Giới thiệu</label></td>
+                </tr>
+                <tr>
+                    <td>
+                        <textarea id="gioi_thieu" name="gioi_thieu" rows="5" placeholder="Giới thiệu về tác giả..."></textarea>
+                    </td>
+                </tr>
+            </table>
+
+            <div class="btn-row">
+                <button type="button" id="addTacGia" class="btn btn-primary">Thêm tác giả</button>
+            </div>
+
+            <div class="back-row">
+                <a href="#" data-nav="back" class="btn btn-ghost">← Quay lại trang trước</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../public/js/navigation.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const tenTacGia = document.getElementById('ten_tacgia');
+        const butDanh = document.getElementById('but_danh');
+        const gioiThieu = document.getElementById('gioi_thieu');
+        const btnAddTacGia = document.getElementById('addTacGia');
+        const formMessage = document.getElementById('form-message');
+
+        function setMessage(text, type) {
+            formMessage.className = type ? 'msg-' + type : '';
+            formMessage.textContent = text || '';
+        }
+
+        btnAddTacGia.addEventListener('click', function () {
+            const tenTacGiaValue = tenTacGia.value.trim();
+            if (!tenTacGiaValue) {
+                alert('Tên tác giả không được để trống');
+                tenTacGia.focus();
+                return;
+            }
+
+            const payload = {
+                id_nguoidung: window.CURRENT_ADMIN_ID,
+                ten_tacgia: tenTacGiaValue,
+                but_danh: butDanh.value.trim(),
+                gioi_thieu: gioiThieu.value.trim()
+            };
+
+            setMessage('Đang xử lý...', 'info');
+            btnAddTacGia.disabled = true;
+
+            fetch('http://localhost:8080/api/tacgia/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    setMessage(data.message || 'Thêm tác giả thành công!', 'success');
+                    tenTacGia.value = '';
+                    butDanh.value = '';
+                    gioiThieu.value = '';
+                } else {
+                    setMessage(data.message || 'Thêm thất bại', 'error');
+                }
+            })
+            .catch(error => {
+                setMessage('Lỗi kết nối máy chủ.', 'error');
+            })
+            .finally(() => {
+                btnAddTacGia.disabled = false;
+            });
+        });
+    });
+    </script>
+</body>
+</html>

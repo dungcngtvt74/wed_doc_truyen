@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Thể Loại</title>
+    <link rel="stylesheet" href="/web_doc_truyen/frontend/public/css/log.css">
+    <link rel="stylesheet" href="/web_doc_truyen/frontend/public/css/quanly.css">
+</head>
+<body class="quanly-page">
+    <script src="/web_doc_truyen/frontend/public/js/admin-guard.js"></script>
+
+    <div class="wrap wrap-narrow">
+        <a href="/web_doc_truyen/frontend/view/admin/dashboard.html">← Về trang quản trị</a>
+        <div class="top-actions">
+            <h1>Quản Lý Thể Loại</h1>
+            <a href="add.html" class="btn-add">+ Thêm thể loại</a>
+        </div>
+
+        <table>
+            <thead>
+                <tr><th>ID</th><th>Tên thể loại</th><th>Hành động</th></tr>
+            </thead>
+            <tbody id="tl-tbody">
+                <tr><td colspan="3">Đang tải...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+    async function loadDanhSach() {
+        const tbody = document.getElementById('tl-tbody');
+        try {
+            const res = await fetch('http://localhost:8080/api/theloai/list');
+            const data = await res.json();
+            if (!data.success || !Array.isArray(data.data) || data.data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3">Chưa có thể loại nào</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.data.map(tl => `
+                <tr>
+                    <td>${tl.id}</td>
+                    <td>${tl.ten_theloai || ''}</td>
+                    <td class="actions">
+                        <a href="edit.html?id=${tl.id}">Sửa</a>
+                        <a href="delete.html?id=${tl.id}">Xóa</a>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            tbody.innerHTML = '<tr><td colspan="3">Lỗi tải danh sách</td></tr>';
+        }
+    }
+    loadDanhSach();
+    </script>
+</body>
+</html>

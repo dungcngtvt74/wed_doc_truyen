@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hồ sơ cá nhân</title>
+    <link rel="stylesheet" href="../../public/css/profile.css">
+    <link rel="stylesheet" href="../../public/css/home.css">
+    <link rel="stylesheet" href="../../public/css/theloai_user.css">
+    <link rel="stylesheet" href="../../public/fonts/fontawesome-free-7.2.0-web/css/all.min.css">
+</head>
+<body>
+    <div id="header-placeholder"></div>
+
+    <div class="profile-container">
+        <div class="profile-header">
+            <h2>Hồ Sơ Cá Nhân</h2>
+            <p>Thông tin chi tiết của bạn</p>
+        </div>
+
+        <div id="api-message"></div>
+
+        <div class="profile-content" id="profile-content" style="display: none;">
+            <div class="avatar-section">
+                <img id="avatar-image" src="" alt="Avatar" class="profile-avatar">
+                <h3 id="display-name"></h3>
+                <span id="role-badge" class="role-badge"></span>
+            </div>
+
+            <div class="info-section">
+                <div class="info-group">
+                    <div class="info-item">
+                        <span class="info-label">Email:</span>
+                        <span class="info-value" id="email"></span>
+                    </div>
+
+                    <div class="info-item">
+                        <span class="info-label">Tên đăng nhập:</span>
+                        <span class="info-value" id="ten-dang-nhap"></span>
+                    </div>
+
+                    <div class="info-item">
+                        <span class="info-label">Họ và tên:</span>
+                        <span class="info-value" id="ho-ten"></span>
+                    </div>
+
+                    <div class="info-item">
+                        <span class="info-label">Số điện thoại:</span>
+                        <span class="info-value" id="so-dien-thoai"></span>
+                    </div>
+
+                    <div class="info-item">
+                        <span class="info-label">Giới tính:</span>
+                        <span class="info-value" id="gioi-tinh"></span>
+                    </div>
+
+                    <div class="info-item">
+                        <span class="info-label">Ngày sinh:</span>
+                        <span class="info-value" id="ngay-sinh"></span>
+                    </div>
+
+                    <div class="info-item full-width">
+                        <span class="info-label">Địa chỉ:</span>
+                        <span class="info-value" id="dia-chi"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-actions">
+            <a href="/web_doc_truyen/frontend/view/hoso_user/hoso_detail.html" class="btn-edit">Cập nhật thông tin</a>
+        </div>
+    </div>
+
+    <script>
+       document.addEventListener('DOMContentLoaded', function() {
+    function loadProfile() {
+        const msgBox = document.getElementById('api-message');
+        let userData = null;
+
+        try {
+            const rawUser = localStorage.getItem('user');
+            userData = rawUser ? JSON.parse(rawUser) : null;
+        } catch (err) {
+            console.warn('Lỗi đọc user từ localStorage:', err);
+            userData = null;
+        }
+
+        const userId = userData && (userData.id || userData.id_nguoidung || userData.iduser);
+
+        if (!userId) {
+            msgBox.className = 'error-message';
+            msgBox.textContent = 'Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+            setTimeout(function () {
+                window.location.href = '../log/login.html';
+            }, 1200);
+            return;
+        }
+
+        // ĐÃ THÊM MỚI: helper build URL avatar từ tên file lưu trong DB
+        function resolveAvatarUrl(avatarFileName, fallbackName) {
+            if (avatarFileName) {
+                if (avatarFileName.startsWith('http://') || avatarFileName.startsWith('https://')) {
+                    return avatarFileName;
+                }
+                return 'http://localhost:8080/uploads/avatar/' + avatarFileName.split('/').pop();
+            }
+            return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(fallbackName || 'User') + '&background=e27212&color=fff';
+        }
+
+        fetch(`http://localhost:8080/api/auth/hoso/get?id_nguoidung=${userId}`)
+            .then(function (res) {
+                if (!res.ok) {
+                    throw new Error('HTTP ' + res.status);
+                }
+                return res.json();
+            })
+            .then(function (result) {
+                if (!result.success) throw new Error(result.message || 'Không tải được hồ sơ');
+
+                const user = result.data || {};
+                const profile = user.profile || {};
+                const hoTen = profile.ho_ten || '';
+                const tenDangNhap = user.ten_dang_nhap || '';
+
+                document.getElementById('display-name').textContent = hoTen || tenDangNhap;
+                document.getElementById('email').textContent = user.email || 'Chưa cập nhật';
+                document.getElementById('ten-dang-nhap').textContent = tenDangNhap;
+                document.getElementById('ho-ten').textContent = hoTen || 'Chưa cập nhật';
+                document.getElementById('so-dien-thoai').textContent = profile.sodienthoai || 'Chưa cập nhật';
+                document.getElementById('dia-chi').textContent = profile.diachi || 'Chưa cập nhật';
+
+                // ĐÃ THÊM MỚI: gán avatar
+                document.getElementById('avatar-image').src = resolveAvatarUrl(profile.avatar, hoTen || tenDangNhap);
+
+                const mapGioiTinh = { nam: 'Nam', nu: 'Nữ', khac: 'Khác' };
+                document.getElementById('gioi-tinh').textContent = mapGioiTinh[profile.gioitinh] || 'Chưa cập nhật';
+
+                if (profile.ngaysinh) {
+                    const parts = String(profile.ngaysinh).split('-');
+                    document.getElementById('ngay-sinh').textContent = `${parts[2] || ''}/${parts[1] || ''}/${parts[0] || ''}`;
+                } else {
+                    document.getElementById('ngay-sinh').textContent = 'Chưa cập nhật';
+                }
+
+                const roleBadge = document.getElementById('role-badge');
+                roleBadge.className = 'role-badge ' + (user.vai_tro || 'user');
+                roleBadge.textContent = user.vai_tro === 'admin' ? 'Quản trị viên' : 'Người dùng';
+
+                document.getElementById('profile-content').style.display = 'flex';
+            })
+            .catch(function (err) {
+                msgBox.className = 'error-message';
+                msgBox.textContent = 'Lỗi kết nối tới máy chủ: ' + (err.message || 'Không xác định');
+            });
+    }
+
+    loadProfile();
+});
+    </script>
+</body>
+</html>

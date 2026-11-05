@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thêm Trang</title>
+    <link rel="stylesheet" href="../../public/css/log.css">
+    <link rel="stylesheet" href="../../public/css/theloaiandtrang.css">
+</head>
+<body>
+    <script src="../../public/js/admin-guard.js"></script>
+
+<a href="#" class="btn-home" data-nav="back">← Quay lại</a>
+
+<h1 class="form-title">Thêm Trang Mới</h1>
+
+<div id="api-message"></div>
+
+<div class="user-form">
+    <form id="formTrang" enctype="multipart/form-data">
+        <input type="hidden" name="id_nguoidung" id="hidden-id-nguoidung">
+        <table>
+            <tr>
+                <td>Chương: <span class="required">*</span></td>
+                <td>
+                    <select name="id_chuong" id="id_chuong" required>
+                        <option value="">-- Chọn chương --</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td>Trang số: <span class="required">*</span></td>
+                <td>
+                    <input type="number" name="so_trang" min="1" placeholder="VD: 1" required>
+                </td>
+            </tr>
+            <tr>
+                <td>Loại: <span class="required">*</span></td>
+                <td>Ảnh</td>
+            </tr>
+            <tr>
+                <td>Ảnh:</td>
+                <td>
+                    <input type="file" name="anh" accept="image/*" required>
+                </td>
+            </tr>
+        </table>
+
+        <div class="form-actions">
+            <button type="submit">Thêm trang</button>
+        </div>
+    </form>
+</div>
+
+<script src="../../public/js/navigation.js"></script>
+<script src="../../public/js/form-handler.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form         = document.getElementById('formTrang');
+    const msgBox       = document.getElementById('api-message');
+    const selectChuong = document.getElementById('id_chuong');
+
+    document.getElementById('hidden-id-nguoidung').value = window.CURRENT_ADMIN_ID;
+
+    const urlParams        = new URLSearchParams(window.location.search);
+    const idChuongFromUrl  = urlParams.get('id_chuong');
+
+    function getReturnUrl(idChuong) {
+        const ref = document.referrer;
+        if (ref && ref.indexOf(window.location.origin) === 0 && ref.indexOf('/trang/add.html') === -1) {
+            return ref;
+        }
+        return '../trang/danhsach.html?id_chuong=' + idChuong;
+    }
+
+    async function loadChuong() {
+        try {
+            const res  = await fetch('http://localhost:8080/api/trang/get_all_chuong');
+            const data = await res.json();
+            if (data.success && Array.isArray(data.data)) {
+                data.data.forEach(function (c) {
+                    const opt = document.createElement('option');
+                    opt.value       = c.id;
+                    opt.textContent = 'Chương ' + c.so_chuong + ' - ' + (c.tieu_de || '');
+                    if (idChuongFromUrl && String(c.id) === String(idChuongFromUrl)) {
+                        opt.selected = true;
+                    }
+                    selectChuong.appendChild(opt);
+                });
+            }
+        } catch (err) {
+            console.error('Lỗi tải chương:', err);
+        }
+    }
+
+    loadChuong();
+
+    bindAjaxForm(form, {
+        messageBox: msgBox,
+        url: 'http://localhost:8080/api/trang/add',
+        processingText: 'Đang xử lý...',
+        successText: 'Thêm trang thành công',
+        errorText: 'Lỗi thêm trang',
+        onSuccess: function (data) {
+            if (data && (data.success || data.Success)) {
+                const idChuong = selectChuong.value;
+                setTimeout(function () {
+                    window.location.href = getReturnUrl(idChuong);
+                }, 1000);
+            }
+        }
+    });
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thêm Truyện</title>
+    <link rel="stylesheet" href="../../public/css/log.css">
+    <link rel="stylesheet" href="../../public/css/truyen.css">
+</head>
+<body>
+    <script src="../../public/js/admin-guard.js"></script>
+
+    <div class="back-bar">
+        <a href="/web_doc_truyen/frontend/public/index.html" class="btn-back-page" id="btn-back-page">← Quay lại</a>
+    </div>
+
+    <h1 class="form-title">Thêm Truyện Mới</h1>
+
+    <div class="user-form">
+        <form method="POST" enctype="multipart/form-data" id="form-add-truyen">
+            <table>
+                <tr>
+                    <td>Tác giả:</td>
+                    <td>
+                        <select name="id_tacgia" required>
+                            <option value="">-- Chọn tác giả --</option>
+                        </select>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>Tên truyện:</td>
+                    <td><input type="text" name="ten_truyen" required placeholder="Nhập tên truyện"></td>
+                </tr>
+
+                <tr>
+                    <td>Mô tả:</td>
+                    <td>
+                        <textarea name="mo_ta" rows="4" class="form-textarea" placeholder="Nhập mô tả truyện..."></textarea>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>Trạng thái:</td>
+                    <td>
+                        <select name="trang_thai" required>
+                            <option value="đang ra">Đang ra</option>
+                            <option value="hoàn thành">Hoàn thành</option>
+                        </select>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>Ảnh bìa:</td>
+                    <td><input type="file" name="anh_bia" accept="image/*"></td>
+                </tr>
+
+                <tr>
+                    <td>Thể loại:</td>
+                    <td>
+                        <div class="theloai-grid" id="theloai-grid">
+                            Đang tải thể loại...
+                        </div>
+                    </td>
+                </tr>
+            </table>
+
+            <div class="form-actions">
+                <button type="submit">Thêm truyện</button>
+                <a href="index.html" class="btn-back">Hủy</a>
+            </div>
+        </form>
+    </div>
+    <div id="api-message"></div>
+
+   <script>
+document.addEventListener('DOMContentLoaded', function(){
+    const msgBox = document.getElementById('api-message');
+    const form = document.getElementById('form-add-truyen');
+
+    const btnBackPage = document.getElementById('btn-back-page');
+    if (btnBackPage) {
+        btnBackPage.addEventListener('click', function(e){
+            if (window.history.length > 1) {
+                e.preventDefault();
+                window.history.back();
+            }
+        });
+    }
+
+    async function loadAuthors(){
+        const sel = document.querySelector('select[name="id_tacgia"]');
+        if(!sel) return;
+
+        try{
+            const res = await fetch('http://localhost:8080/api/tacgia/list');
+            const json = await res.json();
+
+            if(json.success && Array.isArray(json.data)){
+                sel.innerHTML = '<option value="">-- Chọn tác giả --</option>';
+                json.data.forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a.id;
+                    opt.textContent = a.ten_tacgia || a.but_danh || ('Tác giả ' + a.id);
+                    sel.appendChild(opt);
+                });
+            } else {
+                sel.innerHTML = '<option value="">Không có tác giả</option>';
+            }
+        }catch(err){
+            console.error(err);
+            sel.innerHTML = '<option value="">Lỗi tải tác giả</option>';
+        }
+    }
+
+    async function loadTheLoai(){
+        const box = document.getElementById('theloai-grid');
+        if(!box) return;
+
+        try{
+            const res = await fetch('http://localhost:8080/api/theloai/list');
+            const json = await res.json();
+
+            if(json.success && Array.isArray(json.data)){
+                box.innerHTML = '';
+                json.data.forEach(tl => {
+                    const label = document.createElement('label');
+                    label.innerHTML = `
+                        <input type="checkbox" name="theloai_ids[]" value="${tl.id}">
+                        ${tl.ten_theloai}
+                    `;
+                    box.appendChild(label);
+                });
+            } else {
+                box.innerHTML = 'Không có thể loại';
+            }
+        }catch(err){
+            console.error("Lỗi thể loại:", err);
+            box.innerHTML = 'Lỗi load thể loại';
+        }
+    }
+
+    form.addEventListener('submit', async function(e){
+        e.preventDefault();
+        msgBox.textContent = 'Đang xử lý...';
+        msgBox.className = 'msg-info';
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+
+        const fd = new FormData(form);
+        fd.append('id_nguoidung', window.CURRENT_ADMIN_ID);
+
+        try {
+            const res = await fetch('http://localhost:8080/api/truyen/add', {
+                method: 'POST',
+                body: fd
+            });
+
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                msgBox.className = 'msg-success';
+                msgBox.textContent = data.message || 'Thêm truyện thành công!';
+                form.reset();
+            } else {
+                msgBox.className = 'msg-error';
+                msgBox.textContent = data.message || 'Thêm thất bại!';
+            }
+        } catch (err) {
+            msgBox.className = 'msg-error';
+            msgBox.textContent = 'Lỗi kết nối server: ' + err.message;
+        } finally {
+            submitBtn.disabled = false;
+        }
+    });
+
+    loadAuthors();
+    loadTheLoai();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+.id-input-cell {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.id-input-cell input {
+    flex: 1;
+}
+
+#trang-info {
+    display: none;
+}
+
+#row-anh {
+    display: none;
+}
+
+#info-anh {
+    display: block;
+}
+
+#anh-hien-tai {
+    display: none;
+}
+
+.msg-success {
+    color: var(--success);
+}
+
+.msg-error {
+    color: var(--danger);
+}

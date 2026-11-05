@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sửa Trang</title>
+    <link rel="stylesheet" href="../../public/css/log.css">
+    <link rel="stylesheet" href="../../public/css/theloaiandtrang.css">
+    <link rel="stylesheet" href="../../public/css/trang.css">
+</head>
+<body>
+    <script src="../../public/js/admin-guard.js"></script>
+
+<a href="/web_doc_truyen/frontend/view/trang" class="btn-home">← Quay lại</a>
+
+<h1 class="form-title">Sửa Trang</h1>
+
+<div id="api-message"></div>
+
+<div class="user-form">
+    <form id="formSuaTrang" enctype="multipart/form-data">
+        <table>
+
+            <tr>
+                <td>Nhập ID trang: <span class="required">*</span></td>
+                <td class="id-input-cell">
+                    <input type="number" id="trang-id" placeholder="VD: 1">
+                    <button type="button" id="btn-load" class="btn-load">Tải</button>
+                </td>
+            </tr>
+
+            <tr>
+                <td>Trang số: <span class="required">*</span></td>
+                <td>
+                    <input type="number" name="so_trang" id="so_trang" min="1" required>
+                </td>
+            </tr>
+
+            <tr>
+                <td>Loại: <span class="required">*</span></td>
+                <td>
+                    Ảnh
+                </td>
+            </tr>
+
+            <tr>
+                <td>Ảnh hiện tại:</td>
+                <td>
+                    <img id="anh-hien-tai" class="anh-preview"
+                         onerror="this.src='https://via.placeholder.com/220x300/e5e7eb/9ca3af?text=No+Image'">
+                    <span id="no-anh">Chưa có ảnh</span>
+                </td>
+            </tr>
+
+            <tr>
+                <td>Đổi ảnh:</td>
+                <td>
+                    <input type="file" name="anh" accept="image/*">
+                </td>
+            </tr>
+
+        </table>
+
+        <div class="form-actions">
+            <button type="submit">Cập nhật</button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const form   = document.getElementById('formSuaTrang');
+    const msgBox = document.getElementById('api-message');
+    const btnLoad = document.getElementById('btn-load');
+    const idInput = document.getElementById('trang-id');
+
+    let currentId = null;
+
+    btnLoad.addEventListener('click', async () => {
+        const id = idInput.value.trim();
+
+        if (!id) {
+            alert('Vui lòng nhập ID');
+            return;
+        }
+
+        try {
+            const res  = await fetch('http://localhost:8080/api/trang/get?id=' + id);
+            const data = await res.json();
+
+            if (!data.success) {
+                msgBox.className = 'msg-error';
+                msgBox.textContent = data.message || 'Không tìm thấy';
+                return;
+            }
+
+            const t = data.trang;
+            currentId = t.id;
+
+            document.getElementById('so_trang').value = t.so_trang || '';
+
+            const anhEl = document.getElementById('anh-hien-tai');
+            const noAnh = document.getElementById('no-anh');
+
+            if (t.anh) {
+                anhEl.src = 'http://localhost:8080/uploads/trang/' + t.anh;
+                anhEl.style.display = 'block';
+                noAnh.style.display = 'none';
+            } else {
+                anhEl.style.display = 'none';
+                noAnh.style.display = 'block';
+            }
+
+            msgBox.textContent = '';
+
+        } catch (err) {
+            msgBox.className = 'msg-error';
+            msgBox.textContent = 'Lỗi: ' + err.message;
+        }
+    });
+
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        if (!currentId) {
+            alert('Vui lòng tải trang trước');
+            return;
+        }
+
+        msgBox.textContent = '';
+        const btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true;
+
+        const formData = new FormData(form);
+        formData.append('id', currentId);
+        formData.append('id_nguoidung', window.CURRENT_ADMIN_ID);
+
+        try {
+            const res  = await fetch('http://localhost:8080/api/trang/edit', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                msgBox.className = 'msg-success';
+                msgBox.textContent = data.message || 'Cập nhật thành công';
+            } else {
+                msgBox.className = 'msg-error';
+                msgBox.textContent = data.message || 'Cập nhật thất bại';
+            }
+
+        } catch (err) {
+            msgBox.className = 'msg-error';
+            msgBox.textContent = 'Lỗi: ' + err.message;
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+});
+</script>
+
+</body>
+</html>

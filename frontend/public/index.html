@@ -1,0 +1,363 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trang Chủ - Web Đọc Truyện</title>
+    <link rel="stylesheet" href="css/home.css">
+    <link rel="stylesheet" href="css/theloai_user.css">
+    <link rel="stylesheet" href="fonts/fontawesome-free-7.2.0-web/css/all.min.css">
+    <style>
+        /* Mục "Quản lý" dành cho admin, có menu xổ xuống */
+        #admin-dropdown {
+            display: none;               /* mặc định ẩn, JS sẽ bật cho admin */
+            position: relative;
+        }
+        #admin-menu-toggle {
+            background: #e27212;
+            color: #fff;
+            cursor: pointer;
+        }
+        #admin-menu-toggle:hover {
+            background: #c9650f;
+            color: #fff;
+        }
+        .admin-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            min-width: 210px;
+            padding-top: 8px;            /* cầu nối để rê chuột không bị đứt menu */
+            z-index: 1000;
+        }
+        #admin-dropdown:hover .admin-menu,
+        #admin-dropdown.open .admin-menu {
+            display: block;
+        }
+        .admin-menu-box {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+            padding: 8px;
+        }
+        .admin-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            color: #222;
+            text-decoration: none;
+            font-size: 0.92rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .admin-menu-item i {
+            width: 16px;
+            text-align: center;
+        }
+        .admin-menu-item:hover {
+            background: #f3f4f6;
+        }
+        .admin-menu-divider {
+            height: 1px;
+            background: #eee;
+            margin: 6px 4px;
+        }
+    </style>
+</head>
+<body>
+    <!-- GỘP TRỰC TIẾP HEADER VÀO ĐÂY -->
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <h1><a href="/web_doc_truyen/frontend/public/index.html">DocTruyen</a></h1>
+                <nav class="nav-left">
+                    <div class="theloai-dropdown">
+                        <a href="javascript:void(0)">Thể loại</a>
+                        <div class="theloai-menu">
+                            <div class="theloai-grid" id="theloai-grid">
+                                <div class="theloai-empty">Đang tải thể loại...</div>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="/web_doc_truyen/frontend/view/theo_doi_truyen/theo_doi_truyen.html" class="quick-nav-link" id="follow-link">Theo Dõi</a>
+                    <a href="/web_doc_truyen/frontend/view/luutrang/lich_su_doc.html" class="quick-nav-link">Lịch Sử</a>
+
+                    <!-- Mục Quản lý (chỉ admin mới thấy) -->
+                    <div id="admin-dropdown">
+                        <a href="javascript:void(0)" class="quick-nav-link" id="admin-menu-toggle">
+                            <i class="fa-solid fa-screwdriver-wrench"></i> Quản lý
+                        </a>
+                        <div class="admin-menu">
+                            <div class="admin-menu-box">
+                                <a href="/web_doc_truyen/frontend/view/truyen/add.html" class="admin-menu-item">
+                                    <i class="fa-solid fa-book-medical"></i> Thêm truyện
+                                </a>
+                                <div class="admin-menu-divider"></div>
+                                <!-- Link tác giả: href dự phòng được gán bằng JS bên dưới -->
+                                <a href="#" class="admin-menu-item" data-tg="add">
+                                    <i class="fa-solid fa-user-plus"></i> Thêm tác giả
+                                </a>
+                                <a href="#" class="admin-menu-item" data-tg="edit">
+                                    <i class="fa-solid fa-user-pen"></i> Sửa / Xóa tác giả
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+                <form class="header-search" id="search-form">
+                    <div class="search-input-wrap">
+                        <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
+                        <input type="text" class="search-input-header" name="keyword" id="header-keyword" value="" placeholder="Tìm kiếm truyện...">
+                    </div>
+                    <button type="submit" class="search-btn-header">Tìm kiếm</button>
+                </form>
+                <nav class="nav-right" id="nav-right">
+                    <!-- Khu vực này sẽ được JS vẽ Avatar hoặc Nút đăng nhập vào -->
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- PHẦN HIỂN THỊ DANH SÁCH TRUYỆN CỦA TRANG CHỦ -->
+    <section class="stories">
+        <div class="container">
+            <h2>Danh Sách Truyện Mới Nhất</h2>
+            <div class="story-grid" id="story-grid">
+                <div class="story-status">Đang tải danh sách truyện...</div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // ================== ẢNH PLACEHOLDER DỰNG TẠI CHỖ — KHÔNG PHỤ THUỘC MẠNG NGOÀI ==================
+        function makePlaceholder(width, height, text) {
+            const svg = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+                    <rect width="100%" height="100%" fill="#2c3e50"/>
+                    <text x="50%" y="50%" fill="#ffffff" font-family="sans-serif" font-size="16"
+                          text-anchor="middle" dominant-baseline="middle">${text}</text>
+                </svg>`;
+            return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+        }
+        const COVER_PLACEHOLDER = makePlaceholder(180, 240, 'No Image');
+
+        // ==========================================
+        // PHẦN 1: XỬ LÝ HEADER (THỂ LOẠI, AVATAR, DROPDOWN)
+        // ==========================================
+        const categoryGrid = document.getElementById('theloai-grid');
+        const navRight = document.getElementById('nav-right');
+
+        function renderCategories(categories, message) {
+            categoryGrid.innerHTML = '';
+            if (!Array.isArray(categories) || categories.length === 0) {
+                categoryGrid.innerHTML = `<div class="theloai-empty">${message || 'Chưa có thể loại'}</div>`;
+                return;
+            }
+            categories.forEach(category => {
+                const link = document.createElement('a');
+                link.className = 'theloai-item';
+                link.href = '/web_doc_truyen/frontend/view/theloai/chitiettheloai.html?id=' + encodeURIComponent(category.id);
+                link.textContent = category.ten_theloai || '';
+                categoryGrid.appendChild(link);
+            });
+        }
+
+        // ---------- Link trang tác giả ----------
+        // Thư mục và tên file tác giả. Trang xóa đã gộp vào tacgia_edit.html (Sửa / Xóa).
+        const TACGIA_DIR = '/web_doc_truyen/frontend/view/tacgia/';
+        const TACGIA_FILES = { add: 'tacgia_add.html', edit: 'tacgia_edit.html' };
+
+        function setTacGiaLink(key, href) {
+            const el = document.querySelector('[data-tg="' + key + '"]');
+            if (el) el.setAttribute('href', href);
+        }
+
+        // Gán link ngay từ đầu
+        Object.keys(TACGIA_FILES).forEach(key => setTacGiaLink(key, TACGIA_DIR + TACGIA_FILES[key]));
+
+        // Tự đối chiếu link từ trang quản trị (nếu đọc được thì dùng đúng link ở đó)
+        let tacGiaLinksResolved = false;
+        async function resolveTacGiaLinks() {
+            if (tacGiaLinksResolved) return;
+            tacGiaLinksResolved = true;
+            try {
+                const dashUrl = location.origin + '/web_doc_truyen/frontend/view/admin/dashboard.html';
+                const res = await fetch(dashUrl);
+                if (!res.ok) return;
+                const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+
+                const keywords = { add: 'thêm tác giả', edit: 'sửa tác giả' };
+                doc.querySelectorAll('a[href]').forEach(a => {
+                    const text = a.textContent.normalize('NFC').toLowerCase();
+                    Object.keys(keywords).forEach(key => {
+                        if (text.includes(keywords[key])) {
+                            const absolute = new URL(a.getAttribute('href'), dashUrl);
+                            setTacGiaLink(key, absolute.pathname + absolute.search);
+                        }
+                    });
+                });
+            } catch (e) {
+                console.warn('Không đọc được dashboard, dùng đường dẫn mặc định:', e);
+            }
+        }
+
+        // Bật/tắt mục "Quản lý" trên thanh menu tùy theo vai trò
+        function renderAdminActions(user) {
+            const adminBox = document.getElementById('admin-dropdown');
+            if (!adminBox) return;
+
+            const isAdmin = user && user.isLoggedIn && String(user.vaiTro).toLowerCase() === 'admin';
+            adminBox.style.display = isAdmin ? 'inline-block' : 'none';
+            if (isAdmin) resolveTacGiaLinks();
+        }
+
+        // Bấm vào "Quản lý" cũng mở/đóng menu (dùng được trên màn hình cảm ứng)
+        (function setupAdminMenu() {
+            const adminBox = document.getElementById('admin-dropdown');
+            const toggle = document.getElementById('admin-menu-toggle');
+            if (!adminBox || !toggle) return;
+
+            toggle.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                adminBox.classList.toggle('open');
+            });
+            document.addEventListener('click', function () {
+                adminBox.classList.remove('open');
+            });
+        })();
+
+        function renderUser(user) {
+            navRight.innerHTML = '';
+
+            renderAdminActions(user);
+
+            if (user && user.isLoggedIn) {
+                const avatarSrc = user.avatar 
+                    ? 'http://localhost:8080/uploads/avatar/' + user.avatar.split('/').pop() 
+                    : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.displayName) + '&background=e27212&color=fff';
+
+                const dropdownHtml = `
+                    <div class="user-dropdown">
+                        <div class="dropdown-toggle" style="padding: 5px 14px 5px 5px;">
+                            <img src="${avatarSrc}" alt="Avatar" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover;">
+                            <span class="user-name">${user.displayName || 'Tài khoản'}</span>
+                        </div>
+                        <div class="dropdown-menu">
+                            <a href="/web_doc_truyen/frontend/view/hoso_user/hoso_view.html" class="dropdown-item"><i class="fa-regular fa-user"></i> Hồ sơ cá nhân</a>
+                            <a href="/web_doc_truyen/frontend/view/theo_doi_truyen/theo_doi_truyen.html" class="dropdown-item"><i class="fa-regular fa-heart"></i> Truyện theo dõi</a>
+                            <a href="/web_doc_truyen/frontend/view/luutrang/lich_su_doc.html" class="dropdown-item"><i class="fa-solid fa-clock-rotate-left"></i> Lịch sử đọc</a>
+                           ${(user.vaiTro === 'admin' || user.vaiTro === 'Admin') ? '<a href="/web_doc_truyen/frontend/view/admin/dashboard.html" class="dropdown-item" style="color: #e27212;"><i class="fa-solid fa-gear"></i> Trang quản trị</a>' : ''}
+                            <a href="#" class="dropdown-item" id="btn-logout"><i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất</a>
+                        </div>
+                    </div>
+                `;
+                navRight.innerHTML = dropdownHtml;
+
+                document.getElementById('btn-logout').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('isLoggedIn');
+                    window.location.href = '/web_doc_truyen/frontend/view/log/login.html';
+                });
+            } else {
+                navRight.innerHTML = `<a href="/web_doc_truyen/frontend/view/log/login.html" class="login-state-btn"><i class="fa-solid fa-right-to-bracket"></i> Đăng Nhập</a>`;
+            }
+        }
+
+        function loadHeaderData() {
+            let userData = null;
+            try { userData = JSON.parse(localStorage.getItem('user')); } catch (e) {}
+            
+            let userId = userData ? (userData.id || userData.id_nguoidung || userData.iduser) : null;
+            let userIdQuery = userId ? ('?id_nguoidung=' + userId) : '';
+
+            fetch('http://localhost:8080/api/auth/header/init' + userIdQuery)
+                .then(res => res.json())
+                .then(data => {
+                    renderCategories(data.danhSachTheLoai, "Chưa có thể loại");
+                    renderUser(data.user || {});
+                })
+                .catch(err => {
+                    renderCategories([], 'Không tải được thể loại');
+                    renderUser({ isLoggedIn: false });
+                });
+        }
+
+        const searchForm = document.getElementById('search-form');
+        if (searchForm) {
+            searchForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const keyword = document.getElementById('header-keyword').value.trim();
+                if (keyword) {
+                    window.location.href = '/web_doc_truyen/frontend/view/truyen/search.html?keyword=' + encodeURIComponent(keyword);
+                }
+            });
+        }
+
+
+        // ==========================================
+        // PHẦN 2: XỬ LÝ LOAD DANH SÁCH TRUYỆN
+        // ==========================================
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function resolveCoverUrl(anhBia) {
+            if (!anhBia) return COVER_PLACEHOLDER;
+            if (anhBia.startsWith('http://') || anhBia.startsWith('https://')) return anhBia;
+            return 'http://localhost:8080/uploads/anhbia/' + anhBia.split('/').pop();
+        }
+
+        function renderStories(stories) {
+            const storyGrid = document.getElementById('story-grid');
+            if (!Array.isArray(stories) || stories.length === 0) {
+                storyGrid.innerHTML = '<div class="story-status"><h3>Không có truyện nào</h3></div>';
+                return;
+            }
+
+            storyGrid.innerHTML = stories.map(story => {
+                const title = escapeHtml(story.ten_truyen || 'Không có tên');
+                const author = escapeHtml(story.tac_gia || story.but_danh || 'Đang cập nhật');
+                const cover = resolveCoverUrl(story.anh_bia);
+                const views = Number(story.luot_xem || 0).toLocaleString('vi-VN');
+
+                return `
+                    <article class="story-card" data-story-id="${story.id}">
+                        <a href="/web_doc_truyen/frontend/view/truyen/chitiet.html?id=${story.id}">
+                            <img src="${cover}" alt="${title}" onerror="this.src='${COVER_PLACEHOLDER}'">
+                            <h3>${title}</h3>
+                            <p>Tác giả: ${author}</p>
+                            <div class="story-meta">
+                                <span><i class="fa-solid fa-eye"></i> ${views}</span>
+                            </div>
+                        </a>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        async function loadTrangChu() {
+            const storyGrid = document.getElementById('story-grid');
+            try {
+                const res = await fetch('http://localhost:8080/api/truyen/trangchu');
+                const data = await res.json();
+                if (res.ok && data.success && Array.isArray(data.data)) {
+                    renderStories(data.data);
+                } else {
+                    storyGrid.innerHTML = '<div class="story-status"><h3>Không thể tải danh sách truyện</h3></div>';
+                }
+            } catch (err) {
+                storyGrid.innerHTML = '<div class="story-status"><h3>Lỗi kết nối đến máy chủ Spring Boot</h3></div>';
+            }
+        }
+
+        // CHẠY CẢ 2 HÀM KHI TRANG VỪA MỞ LÊN
+        loadHeaderData();
+        loadTrangChu();
+    </script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thêm Chương</title>
+    <link rel="stylesheet" href="../../public/css/log.css">
+    <link rel="stylesheet" href="../../public/css/chuong.css">
+</head>
+<body>
+    <a href="#" class="btn-home" data-nav="back">← Quay lại</a>
+
+    <h1 class="form-title">Thêm Chương Mới</h1>
+    <div id="api-message"></div>
+
+    <div class="user-form">
+        <form method="POST" id="form-add-chuong">
+            <table>
+                <tr>
+                    <td>Truyện: <span class="required">*</span></td>
+                    <td>
+                        <select name="id_truyen" id="select-truyen" required>
+                            <option value="">-- Đang tải truyện... --</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Chương số: <span class="required">*</span></td>
+                    <td>
+                        <input type="number" name="so_chuong" placeholder="VD: 1" min="1" required>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Tiêu đề: <span class="required">*</span></td>
+                    <td>
+                        <input type="text" name="tieu_de" placeholder="VD: Khởi đầu" required>
+                    </td>
+                </tr>
+            </table>
+
+            <div class="form-actions">
+                <button type="submit">Thêm chương</button>
+            </div>
+        </form>
+    </div>
+
+    <script src="../../public/js/navigation.js"></script>
+    <script src="../../public/js/form-handler.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function(){
+        const msgBox = document.getElementById('api-message');
+        const selectTruyen = document.getElementById('select-truyen');
+        const idTruyenFromUrl = new URLSearchParams(window.location.search).get('id_truyen');
+
+        function setSelectError(message) {
+            selectTruyen.innerHTML = '<option value="">' + message + '</option>';
+            selectTruyen.disabled = true;
+        }
+
+        async function loadTruyens(){
+            try{
+                const res = await fetch('http://localhost:8080/api/truyen/all', {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (!res.ok) {
+                    throw new Error('HTTP ' + res.status);
+                }
+
+                const json = await res.json();
+                const list = Array.isArray(json?.data)
+                    ? json.data
+                    : Array.isArray(json?.list)
+                        ? json.list
+                        : [];
+
+                selectTruyen.disabled = false;
+                selectTruyen.innerHTML = '<option value="">-- Chọn truyện --</option>';
+
+                if (!list.length) {
+                    setSelectError('Không có truyện nào');
+                    return;
+                }
+
+                list.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.ten_truyen || t.tenTruyen || ('Truyện ' + t.id);
+                    selectTruyen.appendChild(opt);
+                });
+
+                if (idTruyenFromUrl) {
+                    selectTruyen.value = idTruyenFromUrl;
+                }
+            } catch(err){
+                console.error('Lỗi tải truyện:', err);
+                setSelectError('Lỗi tải danh sách truyện');
+                if (msgBox) {
+                    msgBox.classList.add('msg-error');
+                    msgBox.textContent = 'Không thể tải danh sách truyện. Vui lòng tải lại trang.';
+                }
+            }
+        }
+        loadTruyens();
+
+        const form = document.getElementById('form-add-chuong');
+        bindAjaxForm(form, {
+            messageBox: msgBox,
+            url: 'http://localhost:8080/api/auth/chuong/add',
+            processingText: 'Đang xử lý...',
+            successText: 'Thêm thành công',
+            errorText: 'Lỗi thêm chương',
+            onSuccess: function (data) {
+                if (data && (data.Success || data.success)) {
+                    const idTruyen = selectTruyen.value;
+                    setTimeout(function () {
+                        window.location.href = '../truyen/chitiet.html?id=' + idTruyen;
+                    }, 1000);
+                }
+            }
+        });
+    });
+    </script>
+</body>
+</html>

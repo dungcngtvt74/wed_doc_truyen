@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sửa / Xóa Tác Giả</title>
+    <link rel="stylesheet" href="../../public/css/log.css">
+    <link rel="stylesheet" href="../../public/css/tacgia.css">
+    <link rel="stylesheet" href="../../public/fonts/fontawesome-free-7.2.0-web/css/all.min.css">
+</head>
+<body class="tacgia-form">
+    <script src="../../public/js/admin-guard.js"></script>
+
+    <div class="login-container">
+        <div class="login-wrapper">
+            <h1 class="form-title">Sửa / Xóa Tác Giả</h1>
+            <p id="api-message"></p>
+
+            <form id="form-edit" novalidate>
+                <input type="hidden" name="id" id="id">
+                <table>
+                    <tr>
+                        <td><label for="tg-id">Nhập ID tác giả <span class="required-mark">*</span></label></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="id-row">
+                                <input type="number" id="tg-id" placeholder="VD: 1">
+                                <button type="button" id="btn-load" class="btn btn-dark btn-load">Tải</button>
+                            </div>
+                            <p class="hint">Nhập ID rồi bấm Tải để sửa hoặc xóa tác giả.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><label for="ten_tacgia">Tên tác giả <span class="required-mark">*</span></label></td>
+                    </tr>
+                    <tr>
+                        <td><input type="text" id="ten_tacgia" placeholder="Nhập tên tác giả"></td>
+                    </tr>
+                    <tr>
+                        <td><label for="but_danh">Bút danh</label></td>
+                    </tr>
+                    <tr>
+                        <td><input type="text" id="but_danh" placeholder="Nhập bút danh (nếu có)"></td>
+                    </tr>
+                    <tr>
+                        <td><label for="gioi_thieu">Giới thiệu</label></td>
+                    </tr>
+                    <tr>
+                        <td><textarea id="gioi_thieu" rows="5" placeholder="Giới thiệu về tác giả..."></textarea></td>
+                    </tr>
+                </table>
+
+                <div class="btn-row">
+                    <button type="submit" id="btn-update" class="btn btn-primary" disabled>Cập nhật</button>
+                    <button type="button" id="btn-delete" class="btn btn-danger" disabled>Xóa tác giả</button>
+                </div>
+            </form>
+
+            <div class="back-row">
+                <a href="#" data-nav="back" class="btn btn-ghost">← Quay lại trang trước</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../public/js/navigation.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('form-edit');
+        const btnLoad = document.getElementById('btn-load');
+        const btnUpdate = document.getElementById('btn-update');
+        const btnDelete = document.getElementById('btn-delete');
+        const idInput = document.getElementById('tg-id');
+        const idField = document.getElementById('id');
+        const tenField = document.getElementById('ten_tacgia');
+        const butDanhField = document.getElementById('but_danh');
+        const gioiThieuField = document.getElementById('gioi_thieu');
+        const msg = document.getElementById('api-message');
+
+        function show(text, type) {
+            msg.className = type ? 'msg-' + type : '';
+            msg.textContent = text || '';
+        }
+
+        function setLoaded(state) {
+            btnUpdate.disabled = !state;
+            btnDelete.disabled = !state;
+        }
+
+        function clearForm() {
+            idField.value = '';
+            idInput.value = '';
+            tenField.value = '';
+            butDanhField.value = '';
+            gioiThieuField.value = '';
+            setLoaded(false);
+        }
+
+        idInput.addEventListener('input', function () {
+            if (idInput.value.trim() !== idField.value) setLoaded(false);
+        });
+
+        idInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                btnLoad.click();
+            }
+        });
+
+        btnLoad.addEventListener('click', async () => {
+            const id = idInput.value.trim();
+            if (!id) return alert('Nhập ID');
+            try {
+                const res = await fetch('http://localhost:8080/api/tacgia/list');
+                const data = await res.json();
+                if (data.success) {
+                    const tacgia = data.data.find(tg => String(tg.id) === id);
+                    if (tacgia) {
+                        idField.value = tacgia.id;
+                        tenField.value = tacgia.ten_tacgia || '';
+                        butDanhField.value = tacgia.but_danh || '';
+                        gioiThieuField.value = tacgia.gioi_thieu || '';
+                        setLoaded(true);
+                        show('Đã tải tác giả: ' + (tacgia.ten_tacgia || ''), 'success');
+                    } else {
+                        setLoaded(false);
+                        show('', '');
+                        alert('Không tìm thấy tác giả với ID này');
+                    }
+                }
+            } catch (err) { alert('Lỗi server!'); }
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!idField.value) return;
+
+            const ten = tenField.value.trim();
+            if (!ten) {
+                show('Tên tác giả không được để trống!', 'error');
+                tenField.focus();
+                return;
+            }
+
+            show('Đang xử lý...', 'info');
+            btnUpdate.disabled = true;
+
+            const payload = {
+                id_nguoidung: window.CURRENT_ADMIN_ID,
+                id: idField.value,
+                ten_tacgia: ten,
+                but_danh: butDanhField.value,
+                gioi_thieu: gioiThieuField.value
+            };
+
+            try {
+                const res = await fetch('http://localhost:8080/api/tacgia/update', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                show(data.success ? 'Cập nhật thành công!' : (data.message || 'Cập nhật thất bại!'),
+                     data.success ? 'success' : 'error');
+            } catch (err) {
+                show('Lỗi kết nối server!', 'error');
+            } finally {
+                btnUpdate.disabled = !idField.value;
+            }
+        });
+
+        btnDelete.addEventListener('click', async () => {
+            const id = idField.value;
+            if (!id) return;
+            const ten = tenField.value.trim();
+            if (!confirm('Xác nhận xóa tác giả "' + ten + '" (ID=' + id + ')?\nHành động không thể hoàn tác.')) return;
+
+            show('Đang xóa...', 'info');
+            btnDelete.disabled = true;
+            btnUpdate.disabled = true;
+
+            try {
+                const res = await fetch('http://localhost:8080/api/tacgia/delete', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_nguoidung: window.CURRENT_ADMIN_ID, id: id })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    clearForm();
+                    show('Đã xóa tác giả "' + ten + '" thành công!', 'success');
+                } else {
+                    show(data.message || 'Xóa thất bại!', 'error');
+                    setLoaded(true);
+                }
+            } catch (err) {
+                show('Lỗi kết nối server!', 'error');
+                setLoaded(true);
+            }
+        });
+    });
+    </script>
+</body>
+</html>

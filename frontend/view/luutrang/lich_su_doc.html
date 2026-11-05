@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lịch Sử Đọc - Web Đọc Truyện</title>
+    <link rel="stylesheet" href="../../public/css/home.css">
+    <link rel="stylesheet" href="../../public/css/theloai_user.css">
+    <link rel="stylesheet" href="../../public/css/lich_su.css">
+    <link rel="stylesheet" href="../../public/fonts/fontawesome-free-7.2.0-web/css/all.min.css">
+</head>
+<body>
+    <div id="header-container"></div>
+
+    <div class="history-wrapper">
+        <h2 class="history-title"><i class="fa-solid fa-clock-rotate-left"></i> Lịch Sử Đọc Truyện</h2>
+        <div class="history-list" id="history-list">
+            <div class="empty-history">Đang tải lịch sử...</div>
+        </div>
+    </div>
+
+    <script>
+        async function loadHeader() {
+            try {
+                const res = await fetch('../layouts/user/header.html', { credentials: 'same-origin' });
+                const html = await res.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const header = doc.querySelector('header');
+                const scripts = doc.querySelectorAll('script');
+                if (header) {
+                    document.getElementById('header-container').innerHTML = header.outerHTML;
+                    scripts.forEach(script => {
+                        const s = document.createElement('script');
+                        if (script.src) s.src = script.src;
+                        else s.textContent = script.textContent;
+                        document.body.appendChild(s);
+                    });
+                }
+            } catch (err) { console.error('Lỗi load header:', err); }
+        }
+
+        function resolveCoverUrl(anhBia) {
+            if (!anhBia) return 'https://via.placeholder.com/180x240/2c3e50/ffffff?text=No+Image';
+            if (anhBia.startsWith('http://') || anhBia.startsWith('https://')) return anhBia;
+            return 'http://localhost:8080/uploads/anhbia/' + anhBia.split('/').pop();
+        }
+
+        function formatDateTime(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+
+        async function loadHistory() {
+            const listContainer = document.getElementById('history-list');
+            const userRaw = localStorage.getItem('user');
+
+            if (!userRaw) {
+                listContainer.innerHTML = `
+                    <div class="empty-history">
+                        <i class="fa-solid fa-circle-user fa-3x empty-history-icon"></i><br>
+                        Vui lòng <a href="../log/login.html">đăng nhập</a> để xem lịch sử đọc.
+                    </div>`;
+                return;
+            }
+
+            const user = JSON.parse(userRaw);
+            const userId = user.id || user.id_nguoidung || user.iduser;
+
+            try {
+                const res = await fetch(`http://localhost:8080/api/luutrang/history?id_nguoidung=${userId}`);
+                const json = await res.json();
+
+                if (res.ok && json.success && Array.isArray(json.data) && json.data.length > 0) {
+                    listContainer.innerHTML = json.data.map(item => {
+                        const cover = resolveCoverUrl(item.anh_bia);
+                        return `
+                            <a href="../trang/danhsach.html?id_chuong=${item.id_chuong}" class="history-item">
+                                <img src="${cover}" alt="${item.ten_truyen}" class="history-cover" onerror="this.src='https://via.placeholder.com/85x120/2c3e50/ffffff?text=Error'">
+                                <div class="history-info">
+                                    <div class="history-name">${item.ten_truyen}</div>
+                                    <div class="history-chapter">Đang đọc: Chương ${item.so_chuong_dang_doc} ${item.tieu_de ? '- ' + item.tieu_de : ''} (Trang ${item.so_trang})</div>
+                                    <div class="history-time"><i class="fa-regular fa-clock"></i> Cập nhật: ${formatDateTime(item.ngay_cap_nhat)}</div>
+                                </div>
+                            </a>
+                        `;
+                    }).join('');
+                } else {
+                    listContainer.innerHTML = '<div class="empty-history">Bạn chưa đọc truyện nào.</div>';
+                }
+            } catch (err) {
+                console.error("Lỗi lấy lịch sử:", err);
+                listContainer.innerHTML = '<div class="empty-history is-error">Lỗi kết nối tới máy chủ!</div>';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadHeader();
+            loadHistory();
+        });
+    </script>
+</body>
+</html>

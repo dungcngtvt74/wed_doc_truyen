@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xóa Trang</title>
+    <link rel="stylesheet" href="../../public/css/log.css">
+    <link rel="stylesheet" href="../../public/css/theloaiandtrang.css">
+    <link rel="stylesheet" href="../../public/css/trang.css">
+</head>
+<body>
+    <script src="../../public/js/admin-guard.js"></script>
+
+<a href="/web_doc_truyen/frontend/view/trang" class="btn-home">← Quay lại</a>
+
+<h1 class="form-title">Xóa Trang</h1>
+
+<div id="api-message"></div>
+
+<div class="user-form">
+    <table>
+        <tr>
+            <td>Nhập ID trang: <span class="required">*</span></td>
+            <td class="id-input-cell">
+                <input type="number" id="trang-id" placeholder="VD: 1">
+                <button type="button" id="btn-load" class="btn-load">Tải</button>
+            </td>
+        </tr>
+    </table>
+
+    <div id="trang-info">
+        <div class="info-section">
+            <table>
+                <tr>
+                    <td>ID:</td>
+                    <td><span id="info-id" class="info-value"></span></td>
+                </tr>
+                <tr>
+                    <td>Chương:</td>
+                    <td><span id="info-chuong" class="info-value"></span></td>
+                </tr>
+                <tr>
+                    <td>Trang số:</td>
+                    <td><span id="info-so" class="info-value"></span></td>
+                </tr>
+                <tr>
+                    <td>Loại:</td>
+                    <td><span id="info-loai" class="info-value"></span></td>
+                </tr>
+                <tr id="row-anh">
+                    <td>Ảnh:</td>
+                    <td>
+                        <img id="info-anh" class="anh-preview"
+                             onerror="this.src='https://via.placeholder.com/220x300/e5e7eb/9ca3af?text=No+Image'">
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="form-actions">
+           <button type="button" id="btn-delete" class="btn-load">Xóa trang</button>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const btnLoad   = document.getElementById('btn-load');
+    const idInput   = document.getElementById('trang-id');
+    const infoBox   = document.getElementById('trang-info');
+    const infoId    = document.getElementById('info-id');
+    const infoChuong= document.getElementById('info-chuong');
+    const infoSo    = document.getElementById('info-so');
+    const infoLoai  = document.getElementById('info-loai');
+    const infoAnh   = document.getElementById('info-anh');
+    const rowAnh    = document.getElementById('row-anh');
+    const btnDelete = document.getElementById('btn-delete');
+    const msg       = document.getElementById('api-message');
+
+    btnLoad.addEventListener('click', async () => {
+        const id = idInput.value.trim();
+        if (!id) return alert('Nhập ID trang');
+        try {
+            const res  = await fetch(`http://localhost:8080/api/trang/get?id=${id}`);
+            const data = await res.json();
+            if (data.success && data.trang) {
+                const t = data.trang;
+                infoId.textContent     = t.id;
+                infoChuong.textContent = t.so_chuong ? ('Chương ' + t.so_chuong + (t.tieu_de ? ' - ' + t.tieu_de : '')) : (t.id_chuong || '');
+                infoSo.textContent     = t.so_trang || '';
+                infoLoai.textContent   = t.loai === 'image' ? 'Ảnh' : 'Văn bản';
+
+                if (t.anh) {
+                    infoAnh.src = 'http://localhost:8080/uploads/trang/' + t.anh;
+                    rowAnh.style.display = 'table-row';
+                } else {
+                    rowAnh.style.display = 'none';
+                }
+
+                infoBox.style.display = 'block';
+                msg.textContent = '';
+            } else {
+                alert(data.message || 'Không tìm thấy trang');
+            }
+        } catch (err) {
+            alert('Lỗi: ' + err.message);
+        }
+    });
+
+    btnDelete.addEventListener('click', async () => {
+        const id = infoId.textContent;
+        if (!confirm('Xác nhận xóa trang ID=' + id + '?')) return;
+        btnDelete.disabled = true;
+        try {
+            const fd = new FormData();
+            fd.append('id', id);
+            fd.append('id_nguoidung', window.CURRENT_ADMIN_ID);
+
+            const res  = await fetch('http://localhost:8080/api/trang/delete', {
+                method: 'POST',
+                body: fd
+            });
+            const data = await res.json();
+            if (data.success) {
+                msg.className = 'msg-success';
+                msg.textContent = data.message || 'Đã xóa thành công';
+                infoBox.style.display = 'none';
+            } else {
+                msg.className = 'msg-error';
+                msg.textContent = data.message || 'Xóa thất bại';
+            }
+        } catch (err) {
+            msg.className = 'msg-error';
+            msg.textContent = 'Lỗi: ' + err.message;
+        } finally {
+            btnDelete.disabled = false;
+        }
+    });
+});
+</script>
+
+</body>
+</html>

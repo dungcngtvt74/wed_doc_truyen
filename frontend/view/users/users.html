@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Người Dùng - Web Đọc Truyện</title>
+    <link rel="stylesheet" href="../../public/css/user.css">
+    <link rel="stylesheet" href="../../public/css/log.css">
+</head>
+<body>
+    <a href="../../public/index.html" class="btn-home">← Trang chủ</a>
+    <h1>Quản lý người dùng</h1>
+
+    <div id="api-message" class="api-message-list"></div>
+
+    <a href="users_add.html" class="btn-add">Thêm người dùng mới</a>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Tên đăng nhập</th>
+                <th>Email</th>
+                <th>Vai trò</th>
+                <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody id="user-table-body">
+            <tr>
+                <td colspan="5" class="empty-data">Đang tải danh sách người dùng...</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const tableBody = document.getElementById('user-table-body');
+        const msgBox = document.getElementById('api-message');
+
+        function readStoredUser() {
+            try {
+                const raw = localStorage.getItem('user');
+                return raw ? JSON.parse(raw) : {};
+            } catch (err) {
+                console.warn('Lỗi đọc user từ localStorage:', err);
+                return {};
+            }
+        }
+
+        const currentUser = readStoredUser();
+
+        async function loadUsers() {
+            try {
+                const res = await fetch('http://localhost:8080/api/auth/all');
+                const data = await res.json();
+
+                const users = data.data || data || [];
+
+                if (!Array.isArray(users) || users.length === 0) {
+                    tableBody.innerHTML = `<tr><td colspan="5" class="empty-data">Chưa có người dùng nào</td></tr>`;
+                    return;
+                }
+
+                tableBody.innerHTML = users.map(user => {
+                    const isSelf = currentUser.id === user.id;
+                    const roleBadge = user.vaitro === 'admin' || user.vai_tro === 'admin'
+                        ? '<span class="role-admin">Admin</span>'
+                        : '<span class="role-user">User</span>';
+
+                    return `
+                        <tr>
+                            <td>${user.id}</td>
+                            <td>
+                                <strong>${user.tendangnhap || user.ten_dang_nhap || ''}</strong>
+                                ${isSelf ? '<span class="badge-self"> (Bạn)</span>' : ''}
+                            </td>
+                            <td>${user.email || ''}</td>
+                            <td>${roleBadge}</td>
+                            <td>
+                                <a href="users_edit.html?id=${user.id}" class="link-edit">Sửa</a>
+                                ${!isSelf ? `<a href="#" onclick="deleteUser(${user.id}, '${user.tendangnhap || user.ten_dang_nhap || ''}')" class="link-delete">Xóa</a>` : '<span class="link-disabled">Xóa</span>'}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                console.error(err);
+                tableBody.innerHTML = `<tr><td colspan="5" class="empty-data is-error">Lỗi kết nối máy chủ khi tải người dùng!</td></tr>`;
+            }
+        }
+
+        window.deleteUser = async function(id, username) {
+            if (!confirm(`Bạn có chắc chắn muốn xóa người dùng "${username}" không?`)) return;
+
+            try {
+                const fd = new FormData();
+                fd.append('id', id);
+
+                const res = await fetch('http://localhost:8080/api/auth/delete', {
+                    method: 'POST',
+                    body: fd
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    msgBox.className = 'api-message-list msg-success';
+                    msgBox.textContent = 'Xóa người dùng thành công!';
+                    loadUsers();
+                } else {
+                    alert(data.message || 'Xóa thất bại');
+                }
+            } catch (err) {
+                alert('Lỗi kết nối: ' + err.message);
+            }
+        };
+
+        loadUsers();
+    });
+    </script>
+</body>
+</html>

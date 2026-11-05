@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chi Tiết Truyện</title>
+    <link rel="stylesheet" href="../../public/css/home.css">
+    <link rel="stylesheet" href="../../public/css/theloai_user.css">
+    <link rel="stylesheet" href="../../public/css/chitiettruyen.css">
+    <link rel="stylesheet" href="../../public/css/comments.css">
+    <link rel="stylesheet" href="../../public/fonts/fontawesome-free-7.2.0-web/css/all.min.css">
+</head>
+<body>
+    <div id="header-container"></div>
+
+    <div class="chitiet-container" id="chitiet-container">
+        <div class="loading">Đang tải thông tin truyện...</div>
+    </div>
+
+    <script>
+    function makePlaceholder(width, height, text) {
+        const svg = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+                <rect width="100%" height="100%" fill="#2c3e50"/>
+                <text x="50%" y="50%" fill="#ffffff" font-family="sans-serif" font-size="16"
+                      text-anchor="middle" dominant-baseline="middle">${text}</text>
+            </svg>`;
+        return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+    }
+    const COVER_PLACEHOLDER = makePlaceholder(220, 300, 'No Image');
+
+    function getCurrentAdminId() {
+        try {
+            const raw = localStorage.getItem('user');
+            if (!raw) return null;
+            const user = JSON.parse(raw);
+            const vaiTro = user && (user.vaiTro || user.vai_tro);
+            if (String(vaiTro).toLowerCase() !== 'admin') return null;
+            return user.id || user.id_nguoidung || user.iduser || null;
+        } catch (e) {
+            return null;
+        }
+    }
+    function isCurrentUserAdmin() {
+        return getCurrentAdminId() !== null;
+    }
+
+    async function loadHeader() {
+        try {
+            const res = await fetch('../layouts/user/header.html', {
+                credentials: 'same-origin'
+            });
+            const html = await res.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const header = doc.querySelector('header');
+            const scripts = doc.querySelectorAll('script');
+            if (header) {
+                document.getElementById('header-container').innerHTML = header.outerHTML;
+                scripts.forEach(script => {
+                    const s = document.createElement('script');
+                    if (script.src) s.src = script.src;
+                    else s.textContent = script.textContent;
+                    document.body.appendChild(s);
+                });
+            }
+        } catch (err) {
+            console.error('Lỗi load header:', err);
+        }
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function resolveCoverUrl(anhBia) {
+        if (!anhBia) return COVER_PLACEHOLDER;
+        if (anhBia.startsWith('http://') || anhBia.startsWith('https://')) return anhBia;
+        return 'http://localhost:8080/uploads/anhbia/' + anhBia.split('/').pop();
+    }
+
+    async function deleteTruyen(id) {
+        if (!confirm('Xác nhận xóa truyện này? Toàn bộ chương/trang liên quan cũng có thể bị ảnh hưởng. Hành động không thể hoàn tác.')) return;
+        const adminId = getCurrentAdminId();
+        try {
+            const fd = new FormData();
+            fd.append('id', id);
+            fd.append('id_nguoidung', adminId);
+            const res = await fetch('http://localhost:8080/api/truyen/delete', {
+                method: 'POST',
+                body: fd
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || 'Đã xóa truyện thành công');
+                window.location.href = '/web_doc_truyen/frontend/public/index.html';
+            } else {
+                alert(data.message || 'Xóa thất bại');
+            }
+        } catch (err) {
+            alert('Lỗi kết nối server');
+        }
+    }
+
+    async function renderTheLoaiTags(theloaiIds) {
+        const wrap = document.getElementById('theloai-tags');
+        if (!wrap) return;
+
+        if (!Array.isArray(theloaiIds) || theloaiIds.length === 0) {
+            wrap.innerHTML = '';
+            return;
+        }
+
+        try {
+            const res = await fetch('http://localhost:8080/api/theloai/list');
+            const data = await res.json();
+            if (!data.success || !Array.isArray(data.data)) {
+                wrap.innerHTML = '';
+                return;
+            }
+
+            const idSet = new Set(theloaiIds.map(String));
+            const matched = data.data.filter(tl => idSet.has(String(tl.id)));
+
+            if (matched.length === 0) {
+                wrap.innerHTML = '';
+                return;
+            }
+
+            wrap.innerHTML = matched.map(tl => `
+                <a href="../theloai/chitiettheloai.html?id=${tl.id}" class="theloai-tag">
+                    ${escapeHtml(tl.ten_theloai || '')}
+                </a>
+            `).join('');
+        } catch (err) {
+            console.error('Lỗi tải thể loại:', err);
+            wrap.innerHTML = '';
+        }
+    }
+
+    async function loadChiTiet(id) {
+        try {
+            const res = await fetch(`http://localhost:8080/api/truyen/chitiet?id=${id}`);
+            const data = await res.json();
+
+            if (!data.success || !data.truyen) {
+                document.getElementById('chitiet-container').innerHTML = '<div class="error">Không tìm thấy truyện!</div>';
+                return;
+            }
+
+            const t = data.truyen;
+            const coverUrl = resolveCoverUrl(t.anh_bia);
+
+            document.title = escapeHtml(t.ten_truyen) + ' - DocTruyen';
+
+            const isAdmin = isCurrentUserAdmin();
+            const addChuongBtnHtml = isAdmin
+                ? `<a href="../chuong/add.html?id_truyen=${id}" class="btn-add-chuong">
+                       <i class="fa-solid fa-plus"></i> Thêm chương mới
+                   </a>`
+                : '';
+
+            document.getElementById('chitiet-container').innerHTML = `
+                <div class="chitiet-top">
+                    <div class="chitiet-cover">
+                        <img src="${coverUrl}" alt="${escapeHtml(t.ten_truyen)}"
+                             onerror="this.src='${COVER_PLACEHOLDER}'">
+                    </div>
+                    <div class="chitiet-info">
+                        <h1 class="truyen-title">${escapeHtml(t.ten_truyen)}</h1>
+                        <div class="info-row">
+                            <span class="info-label"><i class="fa-solid fa-pen-nib"></i> Tác giả:</span>
+                            <span class="info-value">${escapeHtml(t.ten_tacgia || t.but_danh || 'Chưa rõ')}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label"><i class="fa-solid fa-circle-dot"></i> Trạng thái:</span>
+                            <span class="info-value badge ${t.trang_thai === 'hoàn thành' ? 'badge-done' : 'badge-ongoing'}">
+                                ${escapeHtml(t.trang_thai || 'Đang cập nhật')}
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label"><i class="fa-solid fa-tags"></i> Thể loại:</span>
+                            <span class="info-value" id="theloai-tags"></span>
+                        </div>
+                        <div class="mo-ta">
+                            <p class="mo-ta-label">Mô tả:</p>
+                            <p class="mo-ta-content">${escapeHtml(t.mo_ta || 'Chưa có mô tả')}</p>
+                        </div>
+                        ${isAdmin ? `
+                        <div class="admin-actions">
+                            <a href="../truyen/edit.html?id=${id}" class="btn-add-chuong btn-edit-truyen">
+                                <i class="fa-solid fa-pen"></i> Sửa truyện
+                            </a>
+                            <button type="button" id="btn-delete-truyen" class="btn-add-chuong btn-delete-truyen">
+                                <i class="fa-solid fa-trash"></i> Xóa truyện
+                            </button>
+                        </div>` : ''}
+                    </div>
+                </div>
+                <div class="chuong-section">
+                    <div class="chuong-section-header">
+                        <h2 class="chuong-title"><i class="fa-solid fa-list"></i> Danh Sách Chương</h2>
+                        ${addChuongBtnHtml}
+                    </div>
+                    <div id="chuong-list">
+                        <div class="loading">Đang tải danh sách chương...</div>
+                    </div>
+                </div>
+            `;
+
+            const btnDeleteTruyen = document.getElementById('btn-delete-truyen');
+            if (btnDeleteTruyen) {
+                btnDeleteTruyen.addEventListener('click', function () {
+                    deleteTruyen(id);
+                });
+            }
+
+            renderTheLoaiTags(t.theloai_ids);
+
+            loadChuong(id);
+
+        } catch (err) {
+            console.error('Lỗi:', err);
+            document.getElementById('chitiet-container').innerHTML = '<div class="error">Lỗi tải dữ liệu!</div>';
+        }
+    }
+
+    async function loadChuong(id_truyen) {
+        try {
+            const res = await fetch(`http://localhost:8080/api/auth/chuong/get_all?id_truyen=${id_truyen}`);
+            const data = await res.json();
+            const chuongList = document.getElementById('chuong-list');
+            const danhSachChuong = data.data || data.chuongs || [];
+
+            if (!data.success || danhSachChuong.length === 0) {
+                chuongList.innerHTML = '<div class="no-chuong">Chưa có chương nào</div>';
+                return;
+            }
+
+            const idChuongListStr = danhSachChuong.map(c => c.id).join(',');
+            let firstPageMap = {};
+            try {
+                const batchRes = await fetch(`http://localhost:8080/api/trang/first_page_batch?id_chuong_list=${idChuongListStr}`);
+                const batchData = await batchRes.json();
+                if (batchData.success) firstPageMap = batchData.data || {};
+            } catch (batchErr) {
+                console.error('Lỗi tải trang đầu tiên (không chặn hiển thị danh sách chương):', batchErr);
+            }
+
+            const isAdmin = isCurrentUserAdmin();
+
+            chuongList.innerHTML = danhSachChuong.map(c => {
+                const firstPageId = firstPageMap[c.id];
+                const linkHref = firstPageId
+                    ? `../trang/chitiettrang.html?id=${firstPageId}`
+                    : `../trang/danhsach.html?id_chuong=${c.id}`;
+
+                const addTrangBtnHtml = isAdmin
+                    ? `<a href="../trang/add.html?id_chuong=${c.id}" class="chuong-add-trang-btn" title="Thêm trang cho chương này" onclick="event.stopPropagation();">
+                           <i class="fa-solid fa-plus"></i>
+                       </a>`
+                    : '';
+
+                return `
+                    <div class="chuong-item-wrap">
+                        <a class="chuong-item" href="${linkHref}">
+                            <span class="chuong-so">Chương ${escapeHtml(String(c.so_chuong ?? c.sochuong))}</span>
+                            <span class="chuong-ten">${escapeHtml(c.tieu_de || '')}</span>
+                        </a>
+                        ${addTrangBtnHtml}
+                    </div>
+                `;
+            }).join('');
+
+        } catch (err) {
+            console.error('Lỗi load chương:', err);
+            document.getElementById('chuong-list').innerHTML = '<div class="error">Lỗi tải danh sách chương!</div>';
+        }
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const truyenId = urlParams.get('id');
+
+    if (!truyenId) {
+        document.getElementById('chitiet-container').innerHTML = '<div class="error">Không tìm thấy ID truyện!</div>';
+    } else {
+        loadHeader();
+        loadChiTiet(truyenId);
+    }
+    </script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thêm Thể Loại</title>
+    <link rel="stylesheet" href="../../public/css/log.css">
+    <link rel="stylesheet" href="../../public/css/theloaiandtrang.css">
+</head>
+<body>
+    <script src="../../public/js/admin-guard.js"></script>
+
+<a href="#" class="btn-home" data-nav="back">← Quay lại</a>
+<h1 class="form-title">Thêm Thể Loại</h1>
+<div id="api-message"></div>
+<div class="user-form">
+    <form id="formTheLoai">
+        <input type="hidden" name="id_nguoidung" id="hidden-id-nguoidung">
+        <table>
+            <tr>
+                <td>Tên thể loại: <span class="required">*</span></td>
+                <td>
+                    <input type="text" name="ten_theloai" placeholder="VD: Hành động" required>
+                </td>
+            </tr>
+        </table>
+        <div class="form-actions">
+            <button type="submit">Thêm thể loại</button>
+        </div>
+    </form>
+</div>
+<script src="../../public/js/navigation.js"></script>
+<script src="../../public/js/form-handler.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('formTheLoai');
+    const msgBox = document.getElementById('api-message');
+
+    document.getElementById('hidden-id-nguoidung').value = window.CURRENT_ADMIN_ID;
+
+    bindAjaxForm(form, {
+        messageBox: msgBox,
+        url: 'http://localhost:8080/api/theloai/add',
+        processingText: 'Đang xử lý...',
+        successText: 'Thêm thể loại thành công!',
+        errorText: 'Thêm thất bại',
+        onSuccess: function (data) {
+            if (data && (data.success || data.Success)) {
+                form.reset();
+                document.getElementById('hidden-id-nguoidung').value = window.CURRENT_ADMIN_ID;
+            }
+        }
+    });
+});
+</script>
+</body>
+</html>

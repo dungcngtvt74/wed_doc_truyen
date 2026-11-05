@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sửa Truyện</title>
+    <link rel="stylesheet" href="../../public/css/log.css">
+    <link rel="stylesheet" href="../../public/css/truyen.css">
+</head>
+<body>
+    <script src="../../public/js/admin-guard.js"></script>
+
+    <a href="#" class="btn-home" data-nav="back">← Quay lại</a>
+
+    <h1 class="form-title">Sửa Truyện</h1>
+
+    <div class="user-form">
+        <div class="manual-id-box">
+            <label for="manual-id"><strong>Nhập ID truyện để sửa:</strong></label>
+            <input type="number" id="manual-id" placeholder="VD: 1" class="manual-id-input">
+            <button type="button" id="btn-load" class="manual-id-btn">Tải</button>
+            <span id="current-info" class="manual-id-current">ID: <span id="display-id">-</span> • Tác giả: <span id="display-author">-</span></span>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" id="form-edit-truyen">
+            <input type="hidden" name="id" id="truyen-id">
+
+            <table>
+                <tr>
+                    <td>Tác giả:</td>
+                    <td>
+                        <select name="id_tacgia" id="select-tacgia" required>
+                            <option value="">-- Đang tải... --</option>
+                        </select>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>Tên truyện:</td>
+                    <td>
+                        <input type="text" name="ten_truyen" id="ten-truyen" required>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>Mô tả:</td>
+                    <td>
+                        <textarea name="mo_ta" id="mo-ta" rows="4" class="form-textarea"></textarea>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>Trạng thái:</td>
+                    <td>
+                        <select name="trang_thai" id="trang-thai" required>
+                            <option value="đang ra">Đang ra</option>
+                            <option value="hoàn thành">Hoàn thành</option>
+                        </select>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>Ảnh bìa hiện tại:</td>
+                    <td>
+                        <img id="anh-bia-preview" src="" alt="Ảnh bìa"><br>
+                        <input type="file" name="anh_bia" accept="image/*">
+                        <small>Để trống nếu không đổi ảnh</small>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>Thể loại:</td>
+                    <td>
+                        <div class="theloai-grid" id="theloai-grid">
+                            Đang tải...
+                        </div>
+                    </td>
+                </tr>
+            </table>
+
+            <div class="form-actions">
+                <button type="submit">Cập nhật</button>
+                <a href="index.html" class="btn-back">Hủy</a>
+            </div>
+        </form>
+    </div>
+
+    <div id="api-message"></div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', async function() {
+        const msgBox = document.getElementById('api-message');
+
+        function setCurrentInfo(id, author){
+            document.getElementById('display-id').textContent = id || '-';
+            document.getElementById('display-author').textContent = author || '-';
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const truyenId = urlParams.get('id');
+
+        const manualInput = document.getElementById('manual-id');
+        const btnLoad = document.getElementById('btn-load');
+
+        btnLoad.addEventListener('click', async function(){
+            const id = manualInput.value.trim();
+            if(!id) return alert('Nhập ID truyện');
+            document.getElementById('truyen-id').value = id;
+            setCurrentInfo(id, '...');
+            await loadTruyen(id);
+            await Promise.all([loadTacGia(), loadTheLoai()]);
+        });
+
+        if (truyenId) {
+            manualInput.value = truyenId;
+            document.getElementById('truyen-id').value = truyenId;
+            setCurrentInfo(truyenId, '...');
+            await loadTruyen(truyenId);
+            await Promise.all([loadTacGia(), loadTheLoai()]);
+        } else {
+            await Promise.all([loadTacGia(), loadTheLoai()]);
+        }
+
+        const form = document.getElementById('form-edit-truyen');
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            msgBox.textContent = 'Đang cập nhật...';
+            msgBox.className = 'msg-info';
+
+            const submitBtn = form.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+
+            const fd = new FormData(form);
+            fd.append('id_nguoidung', window.CURRENT_ADMIN_ID);
+
+            try {
+                const res = await fetch('http://localhost:8080/api/truyen/edit', {
+                    method: 'POST',
+                    body: fd
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    msgBox.className = 'msg-success';
+                    msgBox.textContent = data.message || 'Cập nhật thành công!';
+
+                    const idHienTai = document.getElementById('truyen-id').value;
+                    setTimeout(function () {
+                        window.location.href = '../truyen/chitiet.html?id=' + idHienTai;
+                    }, 1000);
+                } else {
+                    msgBox.className = 'msg-error';
+                    msgBox.textContent = data.message || 'Lỗi khi cập nhật!';
+                    submitBtn.disabled = false;
+                }
+            } catch (err) {
+                msgBox.className = 'msg-error';
+                msgBox.textContent = 'Lỗi kết nối: ' + err.message;
+                submitBtn.disabled = false;
+            }
+        });
+    });
+
+    async function loadTruyen(id) {
+        try {
+            const res = await fetch(`http://localhost:8080/api/truyen/get?id=${id}`);
+            const data = await res.json();
+            if (data.success && data.truyen) {
+                const t = data.truyen;
+                document.getElementById('ten-truyen').value = t.ten_truyen || '';
+                document.getElementById('mo-ta').value = t.mo_ta || '';
+                document.getElementById('trang-thai').value = t.trang_thai || 'đang ra';
+                document.getElementById('select-tacgia').setAttribute('data-selected-id', t.id_tacgia);
+
+                if (t.anh_bia) {
+                    const img = document.getElementById('anh-bia-preview');
+                    img.src = 'http://localhost:8080/uploads/anhbia/' + t.anh_bia.split('/').pop();
+                    img.style.display = 'block';
+                } else {
+                    document.getElementById('anh-bia-preview').style.display = 'none';
+                }
+
+                if (Array.isArray(t.theloai_ids)) {
+                    t.theloai_ids.forEach(tid => {
+                        const cb = document.querySelector(`input[name="theloai_ids[]"][value="${tid}"]`);
+                        if (cb) cb.checked = true;
+                    });
+                }
+
+                document.getElementById('display-id').textContent = t.id || id;
+                document.getElementById('display-author').textContent = t.ten_tacgia || 'Đã tải';
+            } else {
+                alert(data.message || 'Không tìm thấy truyện');
+            }
+        } catch (err) {
+            console.error('Lỗi load truyện:', err);
+        }
+    }
+
+    async function loadTacGia() {
+        try {
+            const res = await fetch('http://localhost:8080/api/tacgia/list');
+            const data = await res.json();
+            const select = document.getElementById('select-tacgia');
+            if (data.success && Array.isArray(data.data)) {
+                const selectedId = select.getAttribute('data-selected-id') || '';
+                select.innerHTML = '<option value="">-- Chọn tác giả --</option>';
+                data.data.forEach(tg => {
+                    const opt = document.createElement('option');
+                    opt.value = tg.id;
+                    opt.textContent = tg.ten_tacgia;
+                    if (String(tg.id) === String(selectedId)) opt.selected = true;
+                    select.appendChild(opt);
+                });
+            }
+        } catch (err) {
+            console.error('Lỗi load tác giả:', err);
+        }
+    }
+
+    async function loadTheLoai() {
+        const grid = document.getElementById('theloai-grid');
+        try {
+            const res = await fetch('http://localhost:8080/api/theloai/list');
+            const data = await res.json();
+
+            if (data.success && Array.isArray(data.data)) {
+                grid.innerHTML = '';
+                data.data.forEach(tl => {
+                    grid.innerHTML += `
+                        <label>
+                            <input type="checkbox" name="theloai_ids[]" value="${tl.id}">
+                            ${tl.ten_theloai}
+                        </label>
+                    `;
+                });
+            } else {
+                grid.innerHTML = 'Không có thể loại';
+            }
+        } catch (err) {
+            console.error('Lỗi load thể loại:', err);
+            grid.innerHTML = 'Lỗi tải thể loại';
+        }
+    }
+    </script>
+</body>
+</html>

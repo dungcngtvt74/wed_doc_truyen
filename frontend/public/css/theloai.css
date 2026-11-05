@@ -1,0 +1,56 @@
+.id-input-cell {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.id-input-cell input {
+    flex: 1;
+}
+
+#tl-info {
+    display: none;
+}
+
+.tl-info-box {
+    border-top: 1px solid var(--border);
+    margin-top: 16px;
+    padding-top: 16px;
+}
+
+.info-strong {
+    font-weight: 600;
+}
+
+.btn-danger {
+    border: none;
+    border-radius: 12px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-family: inherit;
+    padding: 12px 28px;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-danger:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(20, 20, 20, 0.18);
+}
+
+.btn-danger:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.msg-success {
+    color: var(--success);
+}
+
+.msg-error {
+    color: var(--danger);
+}

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xóa Tác Giả</title>
+    <link rel="stylesheet" href="../../public/css/log.css">
+    <link rel="stylesheet" href="../../public/css/tacgia.css">
+    <link rel="stylesheet" href="../../public/fonts/fontawesome-free-7.2.0-web/css/all.min.css">
+</head>
+<body>
+    <script src="../../public/js/admin-guard.js"></script>
+
+    <div class="login-container">
+        <div class="login-wrapper">
+            <h1 class="form-title">Xóa Tác Giả</h1>
+            <p id="api-message"></p>
+
+            <table>
+                <tr>
+                    <td><label for="tg-id">Nhập ID tác giả <span class="required-mark">*</span></label></td>
+                </tr>
+                <tr>
+                    <td>
+                        <div class="id-row">
+                            <input type="number" id="tg-id" placeholder="VD: 1">
+                            <button type="button" id="btn-load" class="btn-load">Tải</button>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+
+            <div id="tg-info">
+                <p><strong>ID:</strong> <span id="info-id"></span></p>
+                <p><strong>Tên tác giả:</strong> <span id="info-ten"></span></p>
+                <div class="form-actions">
+                    <button type="button" id="btn-delete">Xóa tác giả</button>
+                </div>
+            </div>
+
+            <p class="form-footer-link">
+                <a href="#" data-nav="back">← Quay lại trang trước</a>
+            </p>
+        </div>
+    </div>
+
+    <script src="../../public/js/navigation.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const btnLoad = document.getElementById('btn-load'), idInput = document.getElementById('tg-id');
+        const infoBox = document.getElementById('tg-info'), infoId = document.getElementById('info-id');
+        const infoTen = document.getElementById('info-ten'), btnDelete = document.getElementById('btn-delete');
+        const msg = document.getElementById('api-message');
+
+        btnLoad.addEventListener('click', async () => {
+            const id = idInput.value.trim();
+            if (!id) return alert('Nhập ID');
+            try {
+                const res = await fetch(`http://localhost:8080/api/tacgia/list`);
+                const data = await res.json();
+                if (data.success) {
+                    const tacgia = data.data.find(tg => String(tg.id) === id);
+                    if (tacgia) {
+                        infoId.textContent = tacgia.id; infoTen.textContent = tacgia.ten_tacgia;
+                        infoBox.style.display = 'block'; msg.textContent = '';
+                    } else { alert('Không tìm thấy tác giả này'); }
+                }
+            } catch (err) { alert('Lỗi kết nối!'); }
+        });
+
+        btnDelete.addEventListener('click', async () => {
+            const id = infoId.textContent;
+            if (!confirm('Xác nhận xóa tác giả ID=' + id + '?')) return;
+            btnDelete.disabled = true; msg.className = 'msg-info'; msg.textContent = 'Đang xóa...';
+            try {
+                const payload = {
+                    id_nguoidung: window.CURRENT_ADMIN_ID,
+                    id: id
+                };
+                const res = await fetch('http://localhost:8080/api/tacgia/delete', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    msg.className = 'msg-success'; msg.textContent = 'Xóa thành công!';
+                    infoBox.style.display = 'none'; idInput.value = '';
+                } else { msg.className = 'msg-error'; msg.textContent = data.message || 'Xóa thất bại!'; }
+            } catch (err) { msg.className = 'msg-error'; msg.textContent = 'Lỗi kết nối!'; }
+            finally { btnDelete.disabled = false; }
+        });
+    });
+    </script>
+</body>
+</html>

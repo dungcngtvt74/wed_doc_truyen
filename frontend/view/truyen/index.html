@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Truyện</title>
+    <link rel="stylesheet" href="../../public/css/log.css">
+    <link rel="stylesheet" href="../../public/css/quanly.css">
+</head>
+<body class="quanly-page">
+    <script src="../../public/js/admin-guard.js"></script>
+
+    <div class="wrap">
+        <a href="../admin/dashboard.html">← Về trang quản trị</a>
+        <div class="top-actions">
+            <h1>Quản Lý Truyện</h1>
+            <a href="add.html" class="btn-add">+ Thêm truyện</a>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Ảnh</th>
+                    <th>ID</th>
+                    <th>Tên truyện</th>
+                    <th>Tác giả</th>
+                    <th>Lượt xem</th>
+                    <th>Hành động</th>
+                </tr>
+            </thead>
+            <tbody id="truyen-tbody">
+                <tr><td colspan="6">Đang tải...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+    function resolveCoverUrl(anhBia) {
+        if (!anhBia) return 'https://via.placeholder.com/45x60/2c3e50/ffffff?text=No';
+        if (anhBia.startsWith('http://') || anhBia.startsWith('https://')) return anhBia;
+        return 'http://localhost:8080/uploads/anhbia/' + anhBia.split('/').pop();
+    }
+
+    async function loadDanhSach() {
+        const tbody = document.getElementById('truyen-tbody');
+        try {
+            const res = await fetch('http://localhost:8080/api/truyen/trangchu');
+            const data = await res.json();
+            if (!data.success || !Array.isArray(data.data) || data.data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6">Chưa có truyện nào</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.data.map(t => `
+                <tr>
+                    <td><img class="thumb" src="${resolveCoverUrl(t.anh_bia)}" alt=""></td>
+                    <td>${t.id}</td>
+                    <td>${t.ten_truyen || ''}</td>
+                    <td>${t.tac_gia || t.but_danh || 'Chưa rõ'}</td>
+                    <td>${Number(t.luot_xem || 0).toLocaleString('vi-VN')}</td>
+                    <td class="actions">
+                        <a href="edit.html?id=${t.id}">Sửa</a>
+                        <a href="delete.html">Xóa</a>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            tbody.innerHTML = '<tr><td colspan="6">Lỗi tải danh sách</td></tr>';
+        }
+    }
+
+    loadDanhSach();
+    </script>
+</body>
+</html>

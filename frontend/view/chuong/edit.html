@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sửa Chương</title>
+    <link rel="stylesheet" href="../../public/css/log.css">
+    <link rel="stylesheet" href="../../public/css/chuong.css">
+</head>
+<body>
+    <a href="#" class="btn-home" data-nav="back">← Quay lại</a>
+
+    <h1 class="form-title">Sửa Chương</h1>
+
+    <div class="manual-id-box">
+        <label for="manual-chuong-id"><strong>Nhập ID chương:</strong></label>
+        <input id="manual-chuong-id" type="number" class="manual-id-input" placeholder="VD: 1">
+        <button id="btn-load-chuong" type="button" class="manual-id-btn">Tải</button>
+        <span class="manual-id-current">Hiện ID: <span id="show-id">-</span></span>
+    </div>
+
+    <div id="api-message"></div>
+
+    <div class="user-form">
+        <form method="POST" id="chuong-form">
+            <input type="hidden" name="id" id="chuong-id">
+            <table>
+                <tr>
+                    <td>Truyện: <span class="required">*</span></td>
+                    <td>
+                        <select name="id_truyen" id="select-truyen" required>
+                            <option value="">-- Đang tải truyện... --</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Chương số: <span class="required">*</span></td>
+                    <td>
+                        <input type="number" name="so_chuong" id="so-chuong" min="1" required>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Tiêu đề: <span class="required">*</span></td>
+                    <td>
+                        <input type="text" name="tieu_de" id="tieu-de" required>
+                    </td>
+                </tr>
+            </table>
+
+            <div class="form-actions">
+                <button type="submit">Cập nhật</button>
+            </div>
+        </form>
+    </div>
+
+    <script src="../../public/js/navigation.js"></script>
+    <script src="../../public/js/form-handler.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', async function(){
+        const msgBox = document.getElementById('api-message');
+        const selectTruyen = document.getElementById('select-truyen');
+        const chuongIdInput = document.getElementById('chuong-id');
+        const soChuongInput = document.getElementById('so-chuong');
+        const tieuDeInput = document.getElementById('tieu-de');
+        const manualInput = document.getElementById('manual-chuong-id');
+        const btnLoad = document.getElementById('btn-load-chuong');
+        const showId = document.getElementById('show-id');
+
+        function setSelectError(message) {
+            selectTruyen.innerHTML = '<option value="">' + message + '</option>';
+            selectTruyen.disabled = true;
+        }
+
+        async function loadTruyens(){
+            try {
+                const res = await fetch('http://localhost:8080/api/truyen/all', {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!res.ok) {
+                    throw new Error('HTTP ' + res.status);
+                }
+                const json = await res.json();
+                const list = Array.isArray(json?.data) ? json.data : Array.isArray(json?.list) ? json.list : [];
+                selectTruyen.disabled = false;
+                selectTruyen.innerHTML = '<option value="">-- Chọn truyện --</option>';
+                if (!list.length) {
+                    setSelectError('Không có truyện nào');
+                    return;
+                }
+                list.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.ten_truyen || t.tenTruyen || ('Truyện ' + t.id);
+                    selectTruyen.appendChild(opt);
+                });
+            } catch (err) {
+                console.error('Lỗi tải truyện:', err);
+                setSelectError('Lỗi tải danh sách truyện');
+                if (msgBox) {
+                    msgBox.classList.add('msg-error');
+                    msgBox.textContent = 'Không thể tải danh sách truyện. Vui lòng thử lại.';
+                }
+            }
+        }
+
+        async function loadChuong(id){
+            try{
+                const res = await fetch(`http://localhost:8080/api/auth/chuong/get?id=${id}`);
+                if (!res.ok) {
+                    throw new Error('HTTP ' + res.status);
+                }
+                const json = await res.json();
+                const data = json?.chuong || json?.data || null;
+                if (json && (json.Success || json.success || json.status === 'success') && data) {
+                    const c = data;
+                    chuongIdInput.value = c.id;
+                    soChuongInput.value = c.so_chuong || c.sochuong || '';
+                    tieuDeInput.value = c.tieu_de || c.tieuDe || '';
+                    await loadTruyens();
+                    selectTruyen.value = c.id_truyen || c.idtruyen || '';
+                    msgBox.textContent = '';
+                } else {
+                    alert(json?.message || 'Không tìm thấy chương');
+                }
+            } catch(err){
+                alert('Lỗi lấy thông tin từ server');
+            }
+        }
+
+        btnLoad.addEventListener('click', async function(){
+            const mid = manualInput.value.trim();
+            if(!mid) return alert("Vui lòng nhập ID!");
+            await loadChuong(mid);
+            showId.textContent = mid;
+        });
+
+        loadTruyens();
+
+        const form = document.getElementById('chuong-form');
+        bindAjaxForm(form, {
+            messageBox: msgBox,
+            url: 'http://localhost:8080/api/auth/chuong/edit',
+            processingText: 'Đang xử lý...',
+            successText: 'Cập nhật thành công!',
+            errorText: 'Lỗi cập nhật'
+        });
+    });
+    </script>
+</body>
+</html>

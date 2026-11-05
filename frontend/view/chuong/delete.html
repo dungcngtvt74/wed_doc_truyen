@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xóa Chương</title>
+    <link rel="stylesheet" href="../../public/css/log.css">
+    <link rel="stylesheet" href="../../public/css/chuong.css">
+</head>
+<body>
+    <a href="#" class="btn-home" data-nav="back">← Quay lại</a>
+    <h1 class="form-title">Xóa Chương</h1>
+
+    <div class="delete-box user-form">
+        <div class="info-row">
+            <label for="del-id"><strong>Nhập ID chương:</strong></label>
+            <input id="del-id" type="number">
+            <button id="btn-fetch" type="button" class="btn-load">Tải</button>
+        </div>
+
+        <div id="chuong-info">
+            <p><strong>ID:</strong> <span id="info-id"></span></p>
+            <p><strong>ID Truyện:</strong> <span id="info-truyen"></span></p>
+            <p><strong>Chương số:</strong> <span id="info-so"></span></p>
+            <p><strong>Tiêu đề:</strong> <span id="info-tieu"></span></p>
+
+            <div class="delete-actions">
+                <button id="btn-delete" class="btn-delete-chuong">Xóa chương</button>
+                <span id="del-status" class="del-status"></span>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../public/js/navigation.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function(){
+        const fetchBtn = document.getElementById('btn-fetch');
+        const delIdInput = document.getElementById('del-id');
+        const infoBox = document.getElementById('chuong-info');
+        const infoId = document.getElementById('info-id');
+        const infoTruyen = document.getElementById('info-truyen');
+        const infoSo = document.getElementById('info-so');
+        const infoTieu = document.getElementById('info-tieu');
+        const deleteBtn = document.getElementById('btn-delete');
+        const statusSpan = document.getElementById('del-status');
+
+        fetchBtn.addEventListener('click', async function(){
+            const id = delIdInput.value.trim();
+            if(!id) return alert('Vui lòng nhập ID chương');
+            try{
+                const res = await fetch(`http://localhost:8080/api/auth/chuong/get?id=${id}`);
+                const json = await res.json();
+                if(json && (json.Success || json.success) && json.chuong){
+                    const c = json.chuong;
+                    infoId.textContent = c.id;
+                    infoTruyen.textContent = c.id_truyen || c.idtruyen || '';
+                    infoSo.textContent = c.so_chuong || c.sochuong || '';
+                    infoTieu.textContent = c.tieu_de || '';
+                    infoBox.style.display = 'block';
+                    statusSpan.textContent = '';
+                } else {
+                    alert(json.message || 'Không tìm thấy chương');
+                    infoBox.style.display = 'none';
+                }
+            } catch(err){
+                alert('Lỗi lấy dữ liệu từ server');
+            }
+        });
+
+        deleteBtn.addEventListener('click', async function(){
+            const id = infoId.textContent;
+            if(!confirm('Xác nhận xóa chương ID=' + id + '?')) return;
+
+            statusSpan.textContent = 'Đang xóa...';
+            statusSpan.className = 'del-status msg-info';
+            deleteBtn.disabled = true;
+
+            try{
+                const fd = new FormData();
+                fd.append('id', id);
+                const res = await fetch('http://localhost:8080/api/auth/chuong/delete', { method: 'POST', body: fd });
+                const json = await res.json();
+
+                if(res.ok && (json.Success || json.success)){
+                    statusSpan.className = 'del-status msg-success';
+                    statusSpan.textContent = 'Xóa thành công';
+                    infoBox.style.display = 'none';
+                    delIdInput.value = '';
+                } else {
+                    statusSpan.className = 'del-status msg-error';
+                    statusSpan.textContent = json.message || 'Xóa thất bại';
+                }
+            } catch(err){
+                statusSpan.className = 'del-status msg-error';
+                statusSpan.textContent = 'Lỗi server!';
+            } finally {
+                deleteBtn.disabled = false;
+            }
+        });
+    });
+    </script>
+</body>
+</html>

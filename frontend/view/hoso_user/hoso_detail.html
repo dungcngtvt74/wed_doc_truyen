@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cập nhật hồ sơ</title>
+    <link rel="stylesheet" href="../../public/css/profile.css">
+    <link rel="stylesheet" href="../../public/css/home.css">
+    <link rel="stylesheet" href="../../public/css/theloai_user.css">
+    <link rel="stylesheet" href="../../public/fonts/fontawesome-free-7.2.0-web/css/all.min.css">
+</head>
+<body>
+    <div id="header-placeholder"></div>
+
+    <div class="form-container">
+        <div class="form-header">
+            <h2>Cập nhật thông tin cá nhân</h2>
+        </div>
+
+        <div id="api-message"></div>
+
+        <form id="profile-form" enctype="multipart/form-data">
+            <div class="form-group" data-field="avatar">
+                <label>Ảnh đại diện</label>
+                <div class="avatar-upload">
+                    <div class="avatar-preview">
+                        <img id="avatar-preview-image" src="" alt="Avatar">
+                    </div>
+                    <input type="file" name="avatar" id="avatarInput" accept="image/*">
+                    <label for="avatarInput" class="upload-btn">Chọn ảnh</label>
+                </div>
+            </div>
+
+            <div class="form-group" data-field="ho_ten">
+                <label>Họ và tên</label>
+                <input type="text" id="ho_ten" name="ho_ten" class="form-control" placeholder="Nhập họ và tên đầy đủ" required>
+            </div>
+
+            <div class="form-group">
+                <label>Tên đăng nhập</label>
+                <input type="text" id="ten_dang_nhap" class="form-control" disabled>
+                <small class="form-text">Không thể thay đổi tên đăng nhập</small>
+            </div>
+
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="email" class="form-control" disabled>
+                <small class="form-text">Email được quản lý bởi tài khoản đăng nhập</small>
+            </div>
+
+            <div class="form-group" data-field="so_dien_thoai">
+                <label>Số điện thoại</label>
+                <input type="tel" id="so_dien_thoai" name="so_dien_thoai" class="form-control" placeholder="Nhập số điện thoại" pattern="[0-9]{10,11}" required>
+                <small class="form-text">Nhập 10-11 chữ số</small>
+                <small class="field-error" id="phone-error"></small>
+            </div>
+
+            <div class="form-group" data-field="gioi_tinh">
+                <label>Giới tính</label>
+                <select id="gioi_tinh" name="gioi_tinh" class="form-control" required>
+                    <option value="">-- Chọn giới tính --</option>
+                    <option value="nam">Nam</option>
+                    <option value="nu">Nữ</option>
+                    <option value="khac">Khác</option>
+                </select>
+            </div>
+
+            <div class="form-group" data-field="ngay_sinh">
+                <label>Ngày sinh</label>
+                <input type="date" id="ngay_sinh" name="ngay_sinh" class="form-control" required>
+            </div>
+
+            <div class="form-group" data-field="dia_chi">
+                <label>Địa chỉ sinh sống</label>
+                <textarea id="dia_chi" name="dia_chi" class="form-control" rows="3" placeholder="Nhập địa chỉ của bạn" required></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-submit">Lưu</button>
+                <a href="/web_doc_truyen/frontend/view/hoso_user/hoso_view.html" class="btn-cancel">Hủy</a>
+            </div>
+        </form>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+    const msgBox = document.getElementById('api-message');
+
+    function readStoredUser() {
+        try {
+            const raw = localStorage.getItem('user');
+            return raw ? JSON.parse(raw) : null;
+        } catch (err) {
+            console.warn('Lỗi đọc localStorage user:', err);
+            return null;
+        }
+    }
+
+    const userData = readStoredUser();
+    const userId = userData && (userData.id || userData.id_nguoidung || userData.iduser);
+
+    if (!userId) {
+        msgBox.className = 'error-message';
+        msgBox.textContent = 'Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+        setTimeout(function () {
+            window.location.href = '../log/login.html';
+        }, 1200);
+        return;
+    }
+
+    // ĐÃ THÊM MỚI: helper build URL avatar từ tên file lưu trong DB
+    function resolveAvatarUrl(avatarFileName) {
+        if (!avatarFileName) return '';
+        if (avatarFileName.startsWith('http://') || avatarFileName.startsWith('https://')) {
+            return avatarFileName;
+        }
+        return 'http://localhost:8080/uploads/avatar/' + avatarFileName.split('/').pop();
+    }
+
+    fetch(`http://localhost:8080/api/auth/hoso/get?id_nguoidung=${userId}`)
+        .then(function (res) {
+            if (!res.ok) {
+                throw new Error('HTTP ' + res.status);
+            }
+            return res.json();
+        })
+        .then(function (result) {
+            if (!result.success) return;
+            const user = result.data || {};
+            const p = user.profile || {};
+
+            document.getElementById('ten_dang_nhap').value = user.ten_dang_nhap || '';
+            document.getElementById('email').value = user.email || '';
+            document.getElementById('ho_ten').value = p.ho_ten || '';
+            document.getElementById('so_dien_thoai').value = p.sodienthoai || '';
+            document.getElementById('gioi_tinh').value = p.gioitinh || '';
+            document.getElementById('ngay_sinh').value = p.ngaysinh || '';
+            document.getElementById('dia_chi').value = p.diachi || '';
+
+            // ĐÃ THÊM MỚI: hiện avatar hiện tại (nếu có)
+            const avatarUrl = resolveAvatarUrl(p.avatar);
+            const previewImg = document.getElementById('avatar-preview-image');
+            if (avatarUrl) {
+                previewImg.src = avatarUrl;
+                previewImg.style.display = 'block';
+            } else {
+                previewImg.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.ten_dang_nhap || 'User') + '&background=e27212&color=fff';
+                previewImg.style.display = 'block';
+            }
+        })
+        .catch(function (err) {
+            console.error('Lỗi tải dữ liệu cũ:', err);
+            msgBox.className = 'error-message';
+            msgBox.textContent = 'Không thể tải hồ sơ người dùng. Vui lòng thử lại.';
+        });
+
+    document.getElementById('avatarInput').addEventListener('change', function(e) {
+        if (e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                document.getElementById('avatar-preview-image').src = evt.target.result;
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    });
+
+    const form = document.getElementById('profile-form');
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        msgBox.className = '';
+        msgBox.textContent = '';
+
+        const btn = form.querySelector('.btn-submit');
+        btn.disabled = true;
+        btn.textContent = 'Đang lưu...';
+
+        const fd = new FormData(form);
+        const updateUrl = `http://localhost:8080/api/auth/hoso/update?id_nguoidung=${userId}`;
+
+        fetch(updateUrl, {
+            method: 'POST',
+            body: fd
+        })
+        .then(function(res) {
+            return res.json().then(function(result) {
+                return { ok: res.ok, status: res.status, result: result };
+            }).catch(function() {
+                return { ok: res.ok, status: res.status, result: null };
+            });
+        })
+        .then(function(payload) {
+            const result = payload.result;
+
+            if (payload.ok && result && result.success) {
+                msgBox.className = 'success-message';
+                msgBox.textContent = result.message || 'Cập nhật hồ sơ thành công!';
+
+                setTimeout(function () {
+                    window.location.href = '/web_doc_truyen/frontend/public/index.html';
+                }, 800);
+                return;
+            }
+
+            msgBox.className = 'error-message';
+            if (result && result.message) {
+                msgBox.textContent = result.message;
+            } else {
+                msgBox.textContent = 'Lỗi Server (HTTP ' + payload.status + '). Vui lòng thử lại sau.';
+            }
+            btn.disabled = false;
+            btn.textContent = 'Lưu';
+        })
+        .catch(function(err) {
+            msgBox.className = 'error-message';
+            msgBox.textContent = 'Lỗi kết nối tới máy chủ Spring Boot!';
+            console.error(err);
+            btn.disabled = false;
+            btn.textContent = 'Lưu';
+        });
+    });
+});
+    </script>
+</body>
+</html>
